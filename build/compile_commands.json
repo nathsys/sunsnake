@@ -1,0 +1,8 @@
+[
+{
+  "directory": "/Users/naat/dev/sunsnake/build",
+  "command": "/opt/homebrew/opt/llvm/bin/clang++    -g -O0 -g -gdwarf-4 -std=gnu++20 -arch arm64 -Ofast -funroll-loops -march=native -o CMakeFiles/main.dir/main.cpp.o -c /Users/naat/dev/sunsnake/main.cpp",
+  "file": "/Users/naat/dev/sunsnake/main.cpp",
+  "output": "CMakeFiles/main.dir/main.cpp.o"
+}
+]

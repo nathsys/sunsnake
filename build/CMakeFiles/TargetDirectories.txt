@@ -1,0 +1,6 @@
+/Users/naat/dev/sunsnake/build/CMakeFiles/main.dir
+/Users/naat/dev/sunsnake/build/CMakeFiles/generate.dir
+/Users/naat/dev/sunsnake/build/CMakeFiles/release.dir
+/Users/naat/dev/sunsnake/build/CMakeFiles/debug.dir
+/Users/naat/dev/sunsnake/build/CMakeFiles/edit_cache.dir
+/Users/naat/dev/sunsnake/build/CMakeFiles/rebuild_cache.dir
