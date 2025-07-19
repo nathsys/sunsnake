@@ -193,9 +193,8 @@ constexpr auto rook_masks = make_mask_table<false>();
 template <int max_perms>
 constexpr std::array<BitBoard, max_perms> create_all_perms(const BitBoard movement_mask) {
     std::array<BitBoard, max_perms> blocker_boards{};
-	// Get the amount of bits in the mask.
-    const int move_count = pcnt(movement_mask);
 	// Use the bitcount to calculate the amount of permutations.
+    const int move_count = pcnt(movement_mask);
     const int perm_amount = 1 << move_count;
     // Use the actual perm amount ( < max_perms) and generate all of them.
     for (int perm = 0; perm < perm_amount; ++perm) {
@@ -250,18 +249,19 @@ constexpr std::array<std::array<BitBoard, max_perms>, BOARD_SIZE> create_attack_
 const auto bishop_attacks = create_attack_table<MAX_PERM_BISH>();
 const auto rook_attacks = create_attack_table<MAX_PERM_ROOK>();
 
+#endif // _pdep_u64
+
 #ifdef generate_magics
 // Find magic number for s.
 template<bool diagonal>
 uint64_t find_magic(const Square s) {
 	constexpr int max_perms = diagonal ? MAX_PERM_BISH : MAX_PERM_ROOK;
 	uint64_t attacks[max_perms], used[max_perms];
-	// Get the amount of squares in the mask.
-	const int relevant_bits = diagonal ? REL_BISH_BITS[s] : REL_ROOK_BITS[s];
 	// Generate all possible permutations for the mask of this s.
 	const BitBoard mask = diagonal ? bishop_masks[s] : rook_masks[s];
 	const auto occ = create_all_perms<max_perms>(mask);
 	// Calculate the actual amount of permutations possible with current mask.
+	const int relevant_bits = diagonal ? REL_BISH_BITS[s] : REL_ROOK_BITS[s];
 	const int occ_indices = 1 << relevant_bits;
 	// Generate attack boards for all the permutations.
 	for(int i = 0; i < occ_indices; i++) 
@@ -302,6 +302,5 @@ void init_magics() {
 	}
 }
 #endif // generate_magics
-#endif // _pdep_u64
 
 }
