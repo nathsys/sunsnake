@@ -77,6 +77,8 @@ const int MAX_MAGIC_ATTEMPTS = 1000000;
 // Shorten builtin function names.
 #define pcnt __builtin_popcountll
 
-// Custom static assert macro for compile-time checks.
-#define STATIC_ASSERT( condition, name )\
-    typedef char assert_failed_ ## name [ (condition) ? 1 : -1 ];
+#ifdef _pdep_u64
+// Array sizes for pext tables.
+const uint32_t rook_pext_size = 102400;
+const uint32_t bishop_pext_size = 5248;
+#endif

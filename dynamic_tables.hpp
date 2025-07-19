@@ -8,9 +8,13 @@
 #pragma once
 
 namespace Lookup {
+
 // *= Rook and bishop attack boards on fly. *=
+// Takes a square index and an occupancy board.
+// These functions returns a bitboard with all the squares that the piece can attack
+// or move to.
+
 // Bishop moving logic. In order of up-right, up-left, down-right, down-left.
-// The function returns a bitboard with all the squares that the bishop can attack.
 constexpr BitBoard bishop_attack_on_fly(Square s, BitBoard occ) {
     BitBoard atk = 0ULL;
     for (int sq = s + 9; sq <= 63 && sq % 8 != 0; sq += 9) {
@@ -33,7 +37,6 @@ constexpr BitBoard bishop_attack_on_fly(Square s, BitBoard occ) {
 }
 
 // Rook move logic. In order of up down left right.
-// The function returns a bitboard with all the squares that the rook can attack.
 constexpr BitBoard rook_attack_on_fly(Square s, BitBoard occ) {
     BitBoard atk = 0ULL;
     for (int sq = s + 8; sq <= 63; sq += 8) {
@@ -60,9 +63,6 @@ constexpr BitBoard rook_attack_on_fly(Square s, BitBoard occ) {
 // If the processor supports the PEXT instruction, we can use it to get
 // the attack boards for rook and bishop pieces more efficiently.
 #ifdef _pdep_u64
-// Array sizes for pext tables.
-const uint32_t rook_pext_size = 102400;
-const uint32_t bishop_pext_size = 5248;
 
 // Rook offsets.
 static std::array<BitBoard, 64> init_rook_pext_offset() {
@@ -140,11 +140,11 @@ static const std::array<BitBoard, rook_pext_size> rook_pext_atk = init_rook_pext
 // piece will always be able to attack the edge s.
 // Primary template declaration
 template <bool diagonal>
-constexpr BitBoard make_slider_mask(Square s);
+constexpr BitBoard make_slider_mask(const Square s);
 
 // Rook specialization
 template <>
-constexpr BitBoard make_slider_mask<false>(Square s) {
+constexpr BitBoard make_slider_mask<false>(const Square s) {
     BitBoard mask = 0ULL;
     int rank = s / 8, file = s % 8;
 	// Up, down, left, right.
@@ -161,7 +161,7 @@ constexpr BitBoard make_slider_mask<false>(Square s) {
 
 // Bishop specialization
 template <>
-constexpr BitBoard make_slider_mask<true>(Square s) {
+constexpr BitBoard make_slider_mask<true>(const Square s) {
     BitBoard mask = 0ULL;
     int rank = s / 8, file = s % 8;
     // Up-right, up-left, down-right, down-left.
@@ -179,27 +179,24 @@ constexpr BitBoard make_slider_mask<true>(Square s) {
 // Make lookup tables for the attack masks. This assures that the masks are calculated at compile time,
 // so they are available at runtime without the need to calculate them again.
 template<bool diagonal>
-constexpr std::array<BitBoard, 64> make_mask_table() {
-	std::array<BitBoard, 64> values{};
-	for (int s = 0; s < 64; s++) 
+constexpr std::array<BitBoard, BOARD_SIZE> make_mask_table() {
+	std::array<BitBoard, BOARD_SIZE> values{};
+	for (int s = 0; s < BOARD_SIZE; s++) 
 		values[s] = make_slider_mask<diagonal>(s);
 	return values;
 }
 
-// Slider mask table instances. We do this at compile time, so the masks are available
-// at runtime without the need to calculate them again.
 constexpr auto bishop_masks = make_mask_table<true>();
 constexpr auto rook_masks = make_mask_table<false>();
 
 // Given a movement mask, return an array containing all possible permutations of the mask.
 template <int max_perms>
-constexpr std::array<BitBoard, max_perms> create_all_perms(BitBoard movement_mask) {
+constexpr std::array<BitBoard, max_perms> create_all_perms(const BitBoard movement_mask) {
     std::array<BitBoard, max_perms> blocker_boards{};
 	// Get the amount of bits in the mask.
     const int move_count = pcnt(movement_mask);
 	// Use the bitcount to calculate the amount of permutations.
     const int perm_amount = 1 << move_count;
-	STATIC_ASSERT(perm_amount <= max_perms, TooManyPermutations);
     // Use the actual perm amount ( < max_perms) and generate all of them.
     for (int perm = 0; perm < perm_amount; ++perm) {
         BitBoard blocker_board = 0;
@@ -215,8 +212,9 @@ constexpr std::array<BitBoard, max_perms> create_all_perms(BitBoard movement_mas
 }
 
 // Make lookup table for slider pieces.
-template<int max_perms, bool diagonal>
+template<int max_perms>
 constexpr std::array<std::array<BitBoard, max_perms>, BOARD_SIZE> create_attack_table() {
+	constexpr bool diagonal = (max_perms == MAX_PERM_BISH);
 	// Fetch the right data and function depending on whether the function call is for
 	// bishop or rook movement.
 	const auto& masks = diagonal ? bishop_masks : rook_masks;
@@ -249,12 +247,14 @@ constexpr std::array<std::array<BitBoard, max_perms>, BOARD_SIZE> create_attack_
 
 // Attack table instances. Using magic numbers, the index can be calculated.
 // With the index and the s, this array contains the attack board.
-const auto bishop_attacks = create_attack_table<MAX_PERM_BISH, true>();
-const auto rook_attacks = create_attack_table<MAX_PERM_ROOK, false>();
+const auto bishop_attacks = create_attack_table<MAX_PERM_BISH>();
+const auto rook_attacks = create_attack_table<MAX_PERM_ROOK>();
 
+#ifdef generate_magics
 // Find magic number for s.
-template<bool diagonal, int max_perms>
-uint64_t find_magic(Square s) {
+template<bool diagonal>
+uint64_t find_magic(const Square s) {
+	constexpr int max_perms = diagonal ? MAX_PERM_BISH : MAX_PERM_ROOK;
 	uint64_t attacks[max_perms], used[max_perms];
 	// Get the amount of squares in the mask.
 	const int relevant_bits = diagonal ? REL_BISH_BITS[s] : REL_ROOK_BITS[s];
@@ -292,16 +292,16 @@ uint64_t find_magic(Square s) {
 
 template<bool diagonal>
 void init_magics() {
-	for(Square s = 0; s < 64; s++) {
+	for(Square s = 0; s < BOARD_SIZE; s++) {
 		if(s) std::cout << ", \n";
-		if(diagonal)
-			std::cout << "0x" << std::hex << find_magic<true, MAX_PERM_BISH>(s) << "ULL";
+		if constexpr (diagonal)
+			std::cout << "0x" << std::hex << find_magic<true>(s) << "ULL";
 		else
-			std::cout << "0x" << std::hex << find_magic<false, MAX_PERM_ROOK>(s) << "ULL";
+			std::cout << "0x" << std::hex << find_magic<false>(s) << "ULL";
 
 	}
 }
-
-#endif
+#endif // generate_magics
+#endif // _pdep_u64
 
 }
