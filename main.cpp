@@ -4,6 +4,14 @@
 #include "testing.hpp"
 
 int main() {
-    // Testing::run_all_tests();
-    // Lookup::init_magics();
+    #ifdef run_tests 
+    Testing::run_all_tests();
+    #else
+    #ifdef generate_magics
+    std::cout << "\nGenerating magic numbers for rook.\n" << std::endl;
+    Lookup::init_magics<false>();
+    std::cout << "\nGenerating magic numbers for bishop.\n" << std::endl;
+    Lookup::init_magics<true>();
+    #endif
+    #endif
 }

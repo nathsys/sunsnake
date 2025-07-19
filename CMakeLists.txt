@@ -40,6 +40,16 @@ add_custom_target(debug
 	COMMENT "Building in Debug mode"
 )
 
+add_custom_target(magics
+    COMMAND ${CMAKE_COMMAND} -DCMAKE_BUILD_TYPE=Debug -Dmagics=ON ${CMAKE_SOURCE_DIR} && make
+    COMMENT "Building in Magic Generation mode"
+)
+
+add_custom_target(testing
+    COMMAND ${CMAKE_COMMAND} -DCMAKE_BUILD_TYPE=Debug -Dtesting=ON ${CMAKE_SOURCE_DIR} && make
+    COMMENT "Building in Testing mode"
+)
+
 add_dependencies(generate main) 
 add_custom_command(TARGET generate POST_BUILD
     COMMAND ./main
@@ -47,3 +57,10 @@ add_custom_command(TARGET generate POST_BUILD
 )
 
 add_dependencies(release generate)
+
+if(magics)
+    target_compile_definitions(main PRIVATE generate_magics)
+endif()
+if(testing)
+    target_compile_definitions(main PRIVATE run_tests)
+endif()
