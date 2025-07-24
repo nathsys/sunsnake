@@ -2,18 +2,6 @@
 
 #pragma once
 
-// Define pieces. Note that we seperate diagonal and orthogonal for the queen so that we can reuse 
-// bishop and rook functions.
-#define PAWN	   1
-#define KING	   2
-#define ROOK	   3
-#define BISHOP	   4
-#define KNIGHT	   5
-#define QUEEN	   6
-#define QUEEN_DIAG 7
-#define QUEEN_ORTH 8
-#define EMPTY	   0
-
 // Define aliases for data structures.
 typedef uint64_t BitBoard;
 typedef uint_fast8_t Square; 
@@ -78,6 +66,16 @@ constexpr int REL_BISH_BITS[64] = {
 
 // Maximum attempts to generate a magic number before raising an error.
 constexpr int MAX_MAGIC_ATTEMPTS = 10000000;
+
+// Define slider types, this can be used with 
+// template specialization to create different attack tables.
+enum class SliderType {
+    diagonal,
+    orthogonal
+};
+
+// Fast check to see if slider type is diagonal.
+#define IS_DIAGONAL(slider_type) (slider_type == SliderType::diagonal)
 
 // Shorten builtin function names.
 #define pcnt __builtin_popcountll

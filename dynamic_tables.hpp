@@ -135,16 +135,27 @@ static const std::array<BitBoard, rook_pext_size> rook_pext_atk = init_rook_pext
 
 // *= Bishop and rook masks *=
 
+// Return the maximum amount of permutations possible for a given slider type.
+// This is uded to determine the size of the attack board table.
+template<SliderType slider_type>
+inline constexpr int max_perms() {
+	if constexpr IS_DIAGONAL(slider_type) {
+		return MAX_PERM_BISH;
+	} else {
+		return MAX_PERM_ROOK;
+	}
+}
+
 // Makes an attack mask from given s, the mask excludes the far edges in each
 // direction as these are redundant, this is because if an edge is reached, the
 // piece will always be able to attack the edge s.
 // Primary template declaration
-template <bool diagonal>
+template <SliderType slider_type>
 constexpr BitBoard make_slider_mask(const Square s);
 
 // Rook specialization
 template <>
-constexpr BitBoard make_slider_mask<false>(const Square s) {
+constexpr BitBoard make_slider_mask<SliderType::orthogonal>(const Square s) {
     BitBoard mask = 0ULL;
     const int rank = s / 8, file = s % 8;
 	// Up, down, left, right.
@@ -161,7 +172,7 @@ constexpr BitBoard make_slider_mask<false>(const Square s) {
 
 // Bishop specialization
 template <>
-constexpr BitBoard make_slider_mask<true>(const Square s) {
+constexpr BitBoard make_slider_mask<SliderType::diagonal>(const Square s) {
     BitBoard mask = 0ULL;
     const int rank = s / 8, file = s % 8;
     // Up-right, up-left, down-right, down-left.
@@ -178,22 +189,21 @@ constexpr BitBoard make_slider_mask<true>(const Square s) {
 
 // Make lookup tables for the attack masks. This assures that the masks are calculated at compile time,
 // so they are available at runtime without the need to calculate them again.
-template<bool diagonal>
+template<SliderType slider_type>
 constexpr auto make_mask_table() {
 	std::array<BitBoard, BOARD_SIZE> values{};
 	for (int s = 0; s < BOARD_SIZE; s++) 
-		values[s] = make_slider_mask<diagonal>(s);
+		values[s] = make_slider_mask<slider_type>(s);
 	return values;
 }
 
-constexpr auto bishop_masks = make_mask_table<true>();
-constexpr auto rook_masks = make_mask_table<false>();
+constexpr auto bishop_masks = make_mask_table<SliderType::diagonal>();
+constexpr auto rook_masks = make_mask_table<SliderType::orthogonal>();
 
 // Given a movement mask, return an array containing all possible permutations of the mask.
-template <bool diagonal>
+template <SliderType slider_type>
 constexpr auto create_all_perms(const BitBoard movement_mask) {
-	constexpr int max_perms = diagonal ? MAX_PERM_BISH : MAX_PERM_ROOK;
-    std::array<BitBoard, max_perms> blocker_boards{};
+    std::array<BitBoard, max_perms<slider_type>()> blocker_boards{};
 	// Use the bitcount to calculate the amount of permutations.
     const int move_count = pcnt(movement_mask);
     const int perm_amount = 1 << move_count;
@@ -212,26 +222,24 @@ constexpr auto create_all_perms(const BitBoard movement_mask) {
 }
 
 // Make lookup table for slider pieces.
-template<bool diagonal>
+template<SliderType slider_type>
 constexpr auto create_attack_table() {
-	constexpr int max_perms = diagonal ? MAX_PERM_BISH : MAX_PERM_ROOK;
 	// Fetch the right data and function depending on whether the function call is for
 	// bishop or rook movement.
-	constexpr auto& masks = diagonal ? bishop_masks : rook_masks;
-	constexpr auto& magics = diagonal ? bishop_magic_numbers : rook_magic_numbers;
-	constexpr auto on_fly = diagonal ? bishop_attack_on_fly : rook_attack_on_fly;
+	constexpr auto& masks = IS_DIAGONAL(slider_type) ? bishop_masks : rook_masks;
+	constexpr auto& magics = IS_DIAGONAL(slider_type) ? bishop_magic_numbers : rook_magic_numbers;
+	constexpr auto on_fly = IS_DIAGONAL(slider_type) ? bishop_attack_on_fly : rook_attack_on_fly;
 
 	// Generate all possible attack boards. 
-	std::array<std::array<BitBoard, max_perms>, BOARD_SIZE> values{};
+	std::array<std::array<BitBoard, max_perms<slider_type>()>, BOARD_SIZE> values{};
 	for (int s = 0; s < BOARD_SIZE; s++) {
 		// Get the relevant mask for the current s. This mask will be used
 		// to determine the blockers, only blockers on the mask are relevant.
 		const BitBoard mask = masks[s];
 		// Amount of bits in the mask, needed for index calculation.
-		const int relevant_bits = diagonal ? REL_BISH_BITS[s] : REL_ROOK_BITS[s];
-		const int occ_indices = 1 << relevant_bits;
+		const int relevant_bits = IS_DIAGONAL(slider_type) ? REL_BISH_BITS[s] : REL_ROOK_BITS[s];
 		// Generate an array of all possible permutations for the mask.
-		const auto blockers = create_all_perms<diagonal>(mask);
+		const auto blockers = create_all_perms<slider_type>(mask);
 		for (const auto &blocker_board : blockers) {
 			// Calculate the index using magic number index formula.
 			const int index = (blocker_board * magics[s]) >> (64 - relevant_bits);
@@ -246,26 +254,26 @@ constexpr auto create_attack_table() {
 
 // Attack table instances. Using magic numbers, the index can be calculated.
 // With the index and the s, this array contains the attack board.
-const auto bishop_attacks = create_attack_table<true>();
-const auto rook_attacks = create_attack_table<false>();
+const auto bishop_attacks = create_attack_table<SliderType::diagonal>();
+const auto rook_attacks = create_attack_table<SliderType::orthogonal>();
 
 #endif // _pdep_u64
 
 #ifdef generate_magics
+
 // Find magic number for s.
-template<bool diagonal>
+template<SliderType slider_type>
 uint64_t find_magic(const Square s) {
-	constexpr int max_perms = diagonal ? MAX_PERM_BISH : MAX_PERM_ROOK;
-	uint64_t attacks[max_perms], used[max_perms];
+	uint64_t attacks[max_perms<slider_type>()], used[max_perms<slider_type>()];
 	// Generate all possible permutations for the mask of this s.
-	constexpr BitBoard mask = diagonal ? bishop_masks[s] : rook_masks[s];
-	constexpr auto occ = create_all_perms<max_perms>(mask);
+	constexpr BitBoard mask = IS_DIAGONAL(slider_type) ? bishop_masks[s] : rook_masks[s];
+	constexpr auto occ = create_all_perms<max_perms<slider_type>()>(mask);
 	// Calculate the actual amount of permutations possible with current mask.
-	constexpr int relevant_bits = diagonal ? REL_BISH_BITS[s] : REL_ROOK_BITS[s];
+	constexpr int relevant_bits = IS_DIAGONAL(slider_type) ? REL_BISH_BITS[s] : REL_ROOK_BITS[s];
 	constexpr int occ_indices = 1 << relevant_bits;
 	// Generate attack boards for all the permutations.
 	for(int i = 0; i < occ_indices; i++) 
-		attacks[i] = diagonal ? bishop_attack_on_fly(s, occ[i]) : rook_attack_on_fly(s, occ[i]);
+		attacks[i] = IS_DIAGONAL(slider_type) ? bishop_attack_on_fly(s, occ[i]) : rook_attack_on_fly(s, occ[i]);
 	// Brute force a magic number.
 	for(uint64_t r = 0; r < MAX_MAGIC_ATTEMPTS; r++) {
 		const uint64_t candidate = random_u64();
@@ -290,14 +298,14 @@ uint64_t find_magic(const Square s) {
 	return 0;
 }
 
-template<bool diagonal>
+template<SliderType slider_type>
 void init_magics() {
 	for(Square s = 0; s < BOARD_SIZE; s++) {
 		if(s) std::cout << ", \n";
-		if constexpr (diagonal)
-			std::cout << "0x" << std::hex << find_magic<true>(s) << "ULL";
+		if constexpr (IS_DIAGONAL(slider_type))
+			std::cout << "0x" << std::hex << find_magic<SliderType::diagonal>(s) << "ULL";
 		else
-			std::cout << "0x" << std::hex << find_magic<false>(s) << "ULL";
+			std::cout << "0x" << std::hex << find_magic<SliderType::orthogonal>(s) << "ULL";
 
 	}
 }
