@@ -8,6 +8,9 @@
 #pragma once
 
 #ifdef run_tests
+
+// *= A suite of testing functions used to verify program integrity *=
+
 namespace Testing {
     // Test if attack on fly produces the same results as the magic number 
     // based attack generation.

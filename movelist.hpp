@@ -1,0 +1,49 @@
+
+#include <cstdio>
+#include <stdexcept>
+
+#pragma once
+
+template <typename T>
+struct MoveList;
+
+template <typename T, size_t s>
+struct Stack;
+
+// Sublist of a stack. Automatically sets the parent's stack pointer back when
+// this list goes out of scope or deleted.
+template <typename T>
+struct MoveList {
+	MoveList(T* start, T* last, Stack<T>& parent) : last(last), start(start), parent(parent) {};
+	~MoveList() { parent.set_last(start); }
+	size_t size() { return last - start; }
+	T* begin() { return start; }
+	T* end() { return last; }
+
+private:
+	T* start;
+	T* last;
+	Stack<T>& parent;
+};
+
+// Custom stack.
+template <typename T, size_t s>
+struct Stack {
+	T stack[s];
+	Stack() : last(stack) {};
+	void push(T val) { *last++ = val; }
+	T pop() {
+		if (last == stack) return *last;
+		return *(--last);
+	}
+	T& top() { return (*last); }
+	T& go_next() { return (*last++); }
+	MoveList<T> from(T* t) { return MoveList<T>(t, last, *this); }
+	void destroy(MoveList<T>* sub) { last = sub->begin(); }
+	void set_last(T* l) { last = l; }
+	void point_prev() { last--; }
+	void point_next() { last++; }
+
+private:
+	T* last;
+};
