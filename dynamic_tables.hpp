@@ -232,8 +232,7 @@ constexpr auto create_attack_table() {
 		const int occ_indices = 1 << relevant_bits;
 		// Generate an array of all possible permutations for the mask.
 		const auto blockers = create_all_perms<diagonal>(mask);
-		for (int board = 0; board < occ_indices; ++board) {
-			const BitBoard blocker_board = blockers[board];
+		for (const auto &blocker_board : blockers) {
 			// Calculate the index using magic number index formula.
 			const int index = (blocker_board * magics[s]) >> (64 - relevant_bits);
 			// Generate the movement mask and store it at the calculated index.
@@ -247,8 +246,8 @@ constexpr auto create_attack_table() {
 
 // Attack table instances. Using magic numbers, the index can be calculated.
 // With the index and the s, this array contains the attack board.
-const auto bishop_attacks = create_attack_table<MAX_PERM_BISH>();
-const auto rook_attacks = create_attack_table<MAX_PERM_ROOK>();
+const auto bishop_attacks = create_attack_table<true>();
+const auto rook_attacks = create_attack_table<false>();
 
 #endif // _pdep_u64
 
