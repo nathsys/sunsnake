@@ -2,6 +2,8 @@
 
 #pragma once
 
+#define run_tests 1
+
 // Define aliases for data structures.
 typedef uint64_t BitBoard;
 typedef uint_fast8_t Square; 
@@ -80,8 +82,6 @@ enum class SliderType {
 // Shorten builtin function names.
 #define pcnt __builtin_popcountll
 
-#ifdef _pdep_u64
-// Array sizes for pext tables.
-constexpr uint32_t rook_pext_size = 102400;
-constexpr uint32_t bishop_pext_size = 5248;
+#ifdef __BMI2__
+#define pext _pdep_u64
 #endif

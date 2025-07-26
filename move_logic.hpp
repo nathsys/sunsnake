@@ -11,15 +11,15 @@ static inline BitBoard get_knight_move(const Square square) { return Lookup::KNI
 
 
 // Use pext if instruction is available on hardware.
-#ifdef _pdep_u64
+#ifdef __BMI2__
 // Bishop moving logic.
 static inline BitBoard get_bishop_move(const Square square, const BitBoard occ) {
-	return bishop_pext_atk[bishop_pext_offset[square] + static_cast<uint32_t>(pext(occ, bishop_mask_table[square]))];
+	return Lookup::bishop_pext_atk[Lookup::bishop_pext_offset[square] + static_cast<uint32_t>(pext(occ, Lookup::bishop_masks[square]))];
 }
 
 // Rook move logic.
 static inline BitBoard get_rook_move(const Square square, const BitBoard occ) {
-	return rook_pext_atk[rook_pext_offset[square] + static_cast<uint32_t>(pext(occ, rook_mask_table[square]))];
+	return Lookup::rook_pext_atk[Lookup::rook_pext_offset[square] + static_cast<uint32_t>(pext(occ, Lookup::rook_masks[square]))];
 }
 #else
 // Bishop moving logic.

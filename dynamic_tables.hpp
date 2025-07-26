@@ -1,9 +1,11 @@
 #include "defaults.hpp"
 #include "util.hpp"
 #include "static_tables.hpp"
+#include "intrin.h"
 
 #include <array>
 #include <cstdint>
+#include <immintrin.h>
 
 #pragma once
 
@@ -56,94 +58,6 @@ constexpr BitBoard rook_attack_on_fly(Square s, BitBoard occ) {
         if (occ & (1ULL << sq)) break;
     }
     return atk;
-}
-
-
-// *= PEXT *=
-// If the processor supports the PEXT instruction, we can use it to get
-// the attack boards for rook and bishop pieces more efficiently.
-#ifdef _pdep_u64
-
-// Rook offsets.
-static std::array<BitBoard, 64> init_rook_pext_offset() {
-	std::array<BitBoard, 64> ret;
-	uint32_t offset = 0;
-	for (Square s = 0; s < 64; s++) {
-		uint32_t perm_amount = 1 << pcnt(rook_mask_table[s]);
-		ret[s] = offset;
-		offset += perm_amount;
-	}
-
-	return ret;
-}
-
-static const std::array<BitBoard, 64> rook_pext_offset = init_rook_pext_offset();
-
-// Bishop offsets.
-static std::array<BitBoard, 64> init_bishop_pext_offset() {
-	std::array<BitBoard, 64> ret;
-	uint32_t offset = 0;
-	for (Square s = 0; s < 64; s++) {
-		uint32_t perm_amount = 1 << pcnt(bishop_mask_table[s]);
-		ret[s] = offset;
-		offset += perm_amount;
-	}
-
-	return ret;
-}
-
-static const std::array<BitBoard, 64> bishop_pext_offset = init_bishop_pext_offset();
-
-// Bishop attacks.
-static std::array<BitBoard, bishop_pext_size> init_bishop_pext_atk() {
-	std::array<BitBoard, bishop_pext_size> ret{};
-	uint32_t offset = 0;
-	for (Square s = 0; s < 64; ++s) {
-		uint32_t mask_bits = pcnt(bishop_mask_table[s]);
-		uint32_t perm_amount = 1 << mask_bits;
-
-		for (uint32_t perm = 0; perm < perm_amount; ++perm) {
-			BitBoard blocker = _pdep_u64(static_cast<uint64_t>(perm), bishop_mask_table[s]);
-			ret[offset + perm] = bishop_attack_on_fly(s, blocker);
-		}
-		offset += perm_amount;
-	}
-
-	return ret;
-}
-static const std::array<BitBoard, bishop_pext_size> bishop_pext_atk = init_bishop_pext_atk();
-
-// Rook attacks.
-static std::array<BitBoard, rook_pext_size> init_rook_pext_atk() {
-	std::array<BitBoard, rook_pext_size> ret{};
-	uint32_t offset = 0;
-	for (Square s = 0; s < 64; ++s) {
-		uint32_t mask_bits = pcnt(rook_mask_table[s]);
-		uint32_t perm_amount = 1 << mask_bits;
-
-		for (uint32_t perm = 0; perm < perm_amount; ++perm) {
-			BitBoard blocker = _pdep_u64(static_cast<uint64_t>(perm), rook_mask_table[s]);
-			ret[offset + perm] = rook_attack_on_fly(s, blocker);
-		}
-		offset += perm_amount;
-	}
-
-	return ret;
-}
-static const std::array<BitBoard, rook_pext_size> rook_pext_atk = init_rook_pext_atk();
-#else 
-
-// *= Bishop and rook masks *=
-
-// Return the maximum amount of permutations possible for a given slider type.
-// This is uded to determine the size of the attack board table.
-template<SliderType slider_type>
-inline constexpr int max_perms() {
-	if constexpr IS_DIAGONAL(slider_type) {
-		return MAX_PERM_BISH;
-	} else {
-		return MAX_PERM_ROOK;
-	}
 }
 
 // Makes an attack mask from given s, the mask excludes the far edges in each
@@ -199,6 +113,73 @@ constexpr auto make_mask_table() {
 
 constexpr auto bishop_masks = make_mask_table<SliderType::diagonal>();
 constexpr auto rook_masks = make_mask_table<SliderType::orthogonal>();
+
+#ifdef __BMI2__
+
+// *= PEXT *=
+// If the processor supports the PEXT instruction, we can use it to get
+// the attack boards for rook and bishop pieces more efficiently.
+
+// The sizes of the attack tables.
+constexpr int rook_pext_size = 102400;
+constexpr int bishop_pext_size = 5248;
+
+// We calculate tables with offsets for each square, these 
+// will be used to calculate the final attack table index.
+// The offset is calculated by calculating the sum of 
+// attack boards for all preceeding squares.
+template <SliderType slider_type>
+constexpr auto init_pext_offsets() {
+	std::array<BitBoard, BOARD_SIZE> ret;
+	for (auto s = 0, offset = 0; s < BOARD_SIZE; s++) {
+		// Calculate the possible amount of permuations for the square mask.
+		const uint32_t perm_amount = 1 << pcnt(IS_DIAGONAL(slider_type) ? rook_masks[s] : bishop_masks[s]);
+		ret[s] = offset;
+		offset += perm_amount;
+	}
+	return ret;
+}
+
+constexpr auto bishop_pext_offset = init_pext_offsets<SliderType::diagonal>();
+constexpr auto rook_pext_offset = init_pext_offsets<SliderType::orthogonal>();
+
+// Bishop attacks.
+template <SliderType slider_type>
+constexpr auto init_pext_table() {
+	std::array<BitBoard, IS_DIAGONAL(slider_type) ? bishop_pext_size : rook_pext_size> ret{};
+	// For each square, we generate all attack boards and store them at the corresponding index.
+	for (auto s = 0, offset = 0; s < BOARD_SIZE; ++s) {
+		// Calculate the possible amount of permuations for the square mask.
+		const uint32_t perm_amount = 1 << pcnt(IS_DIAGONAL(slider_type) ? rook_masks[s] : bishop_masks[s]);
+		// Generate all the permuations.
+		for (uint32_t perm = 0; perm < perm_amount; ++perm) {
+			const BitBoard blocker = pext(static_cast<uint64_t>(perm), IS_DIAGONAL(slider_type) ? rook_masks[s] : bishop_masks[s]);
+			ret[offset + perm] = IS_DIAGONAL(slider_type) ? bishop_attack_on_fly(s, blocker) : rook_attack_on_fly(s, blocker);
+		}
+		offset += perm_amount;
+	}
+	return ret;
+}
+
+// Sizes are too large for constexpr, make const instead. To make constexpr, allow 
+// larger compile time evaluations in makefile.
+const std::array<BitBoard, bishop_pext_size> bishop_pext_atk = init_pext_table<SliderType::diagonal>();
+const std::array<BitBoard, rook_pext_size> rook_pext_atk = init_pext_table<SliderType::orthogonal>();
+
+#else 
+
+// *= Bishop and rook masks *=
+
+// Return the maximum amount of permutations possible for a given slider type.
+// This is uded to determine the size of the attack board table.
+template<SliderType slider_type>
+inline constexpr int max_perms() {
+	if constexpr IS_DIAGONAL(slider_type) {
+		return MAX_PERM_BISH;
+	} else {
+		return MAX_PERM_ROOK;
+	}
+}
 
 // Given a movement mask, return an array containing all possible permutations of the mask.
 template <SliderType slider_type>
