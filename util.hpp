@@ -10,6 +10,14 @@ inline bool get_bit_64(uint64_t num, uint8_t pos) { return (num & (1ULL << (63 -
 
 inline constexpr uint64_t square_to_mask(Square s) { return 1ULL << s; }
 
+inline uint8_t lbit(uint64_t n) { return __builtin_clzll(n); }
+
+inline BitBoard pop_extract(BitBoard& b) {
+    BitBoard bit = b & -b;
+    b ^= bit;
+    return bit;
+}
+
 static std::string print_binary(uint64_t n) {
     std::string result = "";
     do {
@@ -47,4 +55,9 @@ static void print_bitboard(uint64_t bitboard) {
 static uint64_t random_u64() {
     static std::mt19937_64 rng{ std::random_device{}() };
     return rng() & rng() & rng();
+}
+
+template <Player player>
+constexpr Player opponent() {
+	return (player == Player::white) ? Player::black : Player::white;
 }

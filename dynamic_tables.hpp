@@ -60,6 +60,27 @@ constexpr BitBoard rook_attack_on_fly(Square s, BitBoard occ) {
     return atk;
 }
 
+// Given a movement mask, return an array containing all possible permutations of the mask.
+template <SliderType slider_type>
+constexpr auto create_all_perms(const BitBoard movement_mask) {
+    std::array<BitBoard, max_perms<slider_type>()> blocker_boards{};
+	// Use the bitcount to calculate the amount of permutations.
+    const int move_count = pcnt(movement_mask);
+    const int perm_amount = 1 << move_count;
+    // Use the actual perm amount ( < max_perms) and generate all of them.
+    for (int perm = 0; perm < perm_amount; ++perm) {
+        BitBoard blocker_board = 0;
+        BitBoard mask = movement_mask;
+        for (int i = 0; i < move_count; ++i) {
+            BitBoard lsb = mask & -mask;
+            mask -= lsb; 
+            if (perm & (1 << i)) blocker_board |= lsb;
+        }
+        blocker_boards[perm] = blocker_board;
+    }
+    return blocker_boards;
+}
+
 // Makes an attack mask from given s, the mask excludes the far edges in each
 // direction as these are redundant, this is because if an edge is reached, the
 // piece will always be able to attack the edge s.
@@ -114,11 +135,10 @@ constexpr auto make_mask_table() {
 constexpr auto bishop_masks = make_mask_table<SliderType::diagonal>();
 constexpr auto rook_masks = make_mask_table<SliderType::orthogonal>();
 
-#ifdef __BMI2__
-
 // *= PEXT *=
 // If the processor supports the PEXT instruction, we can use it to get
 // the attack boards for rook and bishop pieces more efficiently.
+#ifdef __BMI2__
 
 // The sizes of the attack tables.
 constexpr int rook_pext_size = 102400;
@@ -133,7 +153,7 @@ constexpr auto init_pext_offsets() {
 	std::array<BitBoard, BOARD_SIZE> ret;
 	for (auto s = 0, offset = 0; s < BOARD_SIZE; s++) {
 		// Calculate the possible amount of permuations for the square mask.
-		const uint32_t perm_amount = 1 << pcnt(IS_DIAGONAL(slider_type) ? rook_masks[s] : bishop_masks[s]);
+		const uint32_t perm_amount = 1 << pcnt(IS_DIAGONAL(slider_type) ? bishop_masks[s] : rook_masks[s]);
 		ret[s] = offset;
 		offset += perm_amount;
 	}
@@ -150,10 +170,10 @@ constexpr auto init_pext_table() {
 	// For each square, we generate all attack boards and store them at the corresponding index.
 	for (auto s = 0, offset = 0; s < BOARD_SIZE; ++s) {
 		// Calculate the possible amount of permuations for the square mask.
-		const uint32_t perm_amount = 1 << pcnt(IS_DIAGONAL(slider_type) ? rook_masks[s] : bishop_masks[s]);
+		const uint32_t perm_amount = 1 << pcnt(IS_DIAGONAL(slider_type) ? bishop_masks[s] : rook_masks[s]);
 		// Generate all the permuations.
 		for (uint32_t perm = 0; perm < perm_amount; ++perm) {
-			const BitBoard blocker = pext(static_cast<uint64_t>(perm), IS_DIAGONAL(slider_type) ? rook_masks[s] : bishop_masks[s]);
+			const BitBoard blocker = pdep(static_cast<uint64_t>(perm), IS_DIAGONAL(slider_type) ? bishop_masks[s] : rook_masks[s]);
 			ret[offset + perm] = IS_DIAGONAL(slider_type) ? bishop_attack_on_fly(s, blocker) : rook_attack_on_fly(s, blocker);
 		}
 		offset += perm_amount;
@@ -179,27 +199,6 @@ inline constexpr int max_perms() {
 	} else {
 		return MAX_PERM_ROOK;
 	}
-}
-
-// Given a movement mask, return an array containing all possible permutations of the mask.
-template <SliderType slider_type>
-constexpr auto create_all_perms(const BitBoard movement_mask) {
-    std::array<BitBoard, max_perms<slider_type>()> blocker_boards{};
-	// Use the bitcount to calculate the amount of permutations.
-    const int move_count = pcnt(movement_mask);
-    const int perm_amount = 1 << move_count;
-    // Use the actual perm amount ( < max_perms) and generate all of them.
-    for (int perm = 0; perm < perm_amount; ++perm) {
-        BitBoard blocker_board = 0;
-        BitBoard mask = movement_mask;
-        for (int i = 0; i < move_count; ++i) {
-            BitBoard lsb = mask & -mask;
-            mask -= lsb; 
-            if (perm & (1 << i)) blocker_board |= lsb;
-        }
-        blocker_boards[perm] = blocker_board;
-    }
-    return blocker_boards;
 }
 
 // Make lookup table for slider pieces.
@@ -291,5 +290,27 @@ void init_magics() {
 	}
 }
 #endif // generate_magics
+
+// Create a table of all squares between two squares.
+constexpr std::array<std::array<uint64_t, 64>, 64> create_betweens() {
+	std::array<std::array<uint64_t, 64>, 64> ret{};
+	for (int s1 = 0; s1 < 64; s1++) {
+		for (int s2 = 0; s2 < 64; s2++) {
+			if (s1 == s2) continue;
+			const BitBoard rs1 = rook_attack_on_fly(s1, square_to_mask(s2));
+			const BitBoard rs2 = rook_attack_on_fly(s2, square_to_mask(s1));
+			const BitBoard ds1 = bishop_attack_on_fly(s1, square_to_mask(s2));
+			const BitBoard ds2 = bishop_attack_on_fly(s2, square_to_mask(s1));
+
+			if (rs1 & square_to_mask(s2)) 
+				ret[s1][s2] |=  (rs1 & rs2) | square_to_mask(s2);
+			else if (ds1 & square_to_mask(s2)) 
+				ret[s1][s2] |= (ds1 & ds2) | square_to_mask(s2);
+		}
+	}
+	return ret;
+}
+
+constexpr std::array<std::array<uint64_t, 64>, 64> between_squares = create_betweens();
 
 }

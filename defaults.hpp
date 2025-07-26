@@ -3,6 +3,7 @@
 #pragma once
 
 #define run_tests 1
+#define count_moves 1
 
 // Define aliases for data structures.
 typedef uint64_t BitBoard;
@@ -30,6 +31,8 @@ constexpr BitBoard LEFT_EDGE =  0b1000000010000000100000001000000010000000100000
 constexpr BitBoard RIGHT_EDGE = 0b0000000100000001000000010000000100000001000000010000000100000001ULL;
 constexpr BitBoard TOP_RANK =   0b1111111100000000000000000000000000000000000000000000000000000000ULL;
 constexpr BitBoard BOTTOM_RANK = 0b000000000000000000000000000000000000000000000000000000011111111ULL;
+constexpr BitBoard NO_LEFT_EDGE =  ~LEFT_EDGE;
+constexpr BitBoard NO_RIGHT_EDGE = ~RIGHT_EDGE;
 
 // Board size.
 constexpr int BOARD_SIZE = 64;
@@ -76,6 +79,22 @@ enum class SliderType {
     orthogonal
 };
 
+// Define players/colors.
+enum class Player {
+    white,
+    black
+};
+
+// Define piece types.
+enum class PieceType {
+    pawn,
+    knight,
+    bishop,
+    rook,
+    queen,
+    king
+};
+
 // Fast check to see if slider type is diagonal.
 #define IS_DIAGONAL(slider_type) (slider_type == SliderType::diagonal)
 
@@ -83,5 +102,6 @@ enum class SliderType {
 #define pcnt __builtin_popcountll
 
 #ifdef __BMI2__
-#define pext _pdep_u64
+#define pdep _pdep_u64
+#define pext _pext_u64
 #endif
