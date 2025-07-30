@@ -1,6 +1,7 @@
 #include <cstdio>
 #include <iostream>
 #include <random>
+#include <string>
 
 #include "defaults.hpp"
 
@@ -16,6 +17,12 @@ inline BitBoard pop_extract(BitBoard& b) {
     BitBoard bit = b & -b;
     b ^= bit;
     return bit;
+}
+
+inline uint8_t pop(uint64_t& b) {
+	Square index = lbit(b);
+	b ^= square_to_mask(index);
+	return index;
 }
 
 static std::string print_binary(uint64_t n) {
@@ -57,7 +64,37 @@ static uint64_t random_u64() {
     return rng() & rng() & rng();
 }
 
+template<PieceType piece>
+inline constexpr SliderType get_slider_type() {
+    if constexpr (piece == PieceType::bishop || piece == PieceType::queen_diagonal) {
+        return SliderType::diagonal;
+    } else {
+        return SliderType::orthogonal;
+    }
+}
+
 template <Player player>
-constexpr Player opponent() {
+inline constexpr Player opponent() {
 	return (player == Player::white) ? Player::black : Player::white;
+}
+
+inline std::string make_chess_notation(int index) {
+	// Convert column index (0-7) to letter (a-h)
+	char column = 'a' + (index % 8);
+	// Convert row index (0-7) to number (1-8)
+	char row = '8' - (index / 8);
+	return std::string(1, column) + std::string(1, row);
+}
+
+inline uint8_t notation_to_square(std::string notation) {
+	int column = notation[0] - 'a';
+	int row = 7 - (notation[1] - '1');
+	return ((row * 8) + column);
+}
+
+inline void print_movecnt(BitBoard start_square, BitBoard end_square, uint64_t cnt) {
+	if (cnt) {
+		std::cout << make_chess_notation(lbit(start_square)) << make_chess_notation(lbit(end_square)) 
+        << ": " << std::to_string(cnt) << '\n';
+    }
 }

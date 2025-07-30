@@ -4,6 +4,7 @@
 // Add piece to board.
 #include "defaults.hpp"
 #include "chess_board.hpp"
+#include "util.hpp"
 
 #ifdef count_moves
 // If we are just counting moves, we can use templated functions to increase performance.
@@ -45,6 +46,25 @@ inline void capture_move(Board& b, BitBoard from, BitBoard to) {
 	move_piece<player, piece>(b, from | to);
 }
 
+template <Player player, PieceType p, PieceType captured>
+inline void unmake_capture_move(Board& b, BitBoard from, BitBoard to) {
+	move_piece<player, p>(b, from | to);
+	add_to_board<opponent<player>(), captured>(b, to);
+}
 
+// Do pawn double forward move. Retrurns true if en passant is possible.
+template <Player player>
+inline bool pawn_double(Board& b, BitBoard move, BitBoard to) {
+	move_piece<player, PieceType::pawn>(b, move);
+	// If we move pawn to a square next to a pawn, en pessant is possible for next turn.
+	const BitBoard enemy_pawns = b.get_piece_board<opponent<player>(), PieceType::pawn>();
+	const BitBoard en_passant_squares = player == Player::white ? c_en_passant_squares_w : c_en_passant_squares_b;
+	return en_passant_squares & enemy_pawns;
+}
+
+template <Player player>
+inline void unmake_pawn_double(Board& b, BitBoard move) {
+	move_piece<player, PieceType::pawn>(b, move);
+}
 
 #endif // count_moves

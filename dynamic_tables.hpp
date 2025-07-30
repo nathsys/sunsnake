@@ -60,6 +60,17 @@ constexpr BitBoard rook_attack_on_fly(Square s, BitBoard occ) {
     return atk;
 }
 
+// Return the maximum amount of permutations possible for a given slider type.
+// This is uded to determine the size of the attack board table.
+template<SliderType slider_type>
+inline constexpr int max_perms() {
+	if constexpr IS_DIAGONAL(slider_type) {
+		return c_max_perm_bish;
+	} else {
+		return c_max_perm_rook;
+	}
+}
+
 // Given a movement mask, return an array containing all possible permutations of the mask.
 template <SliderType slider_type>
 constexpr auto create_all_perms(const BitBoard movement_mask) {
@@ -126,8 +137,8 @@ constexpr BitBoard make_slider_mask<SliderType::diagonal>(const Square s) {
 // so they are available at runtime without the need to calculate them again.
 template<SliderType slider_type>
 constexpr auto make_mask_table() {
-	std::array<BitBoard, BOARD_SIZE> values{};
-	for (int s = 0; s < BOARD_SIZE; s++) 
+	std::array<BitBoard, c_board_size> values{};
+	for (int s = 0; s < c_board_size; s++) 
 		values[s] = make_slider_mask<slider_type>(s);
 	return values;
 }
@@ -150,8 +161,8 @@ constexpr int bishop_pext_size = 5248;
 // attack boards for all preceeding squares.
 template <SliderType slider_type>
 constexpr auto init_pext_offsets() {
-	std::array<BitBoard, BOARD_SIZE> ret;
-	for (auto s = 0, offset = 0; s < BOARD_SIZE; s++) {
+	std::array<BitBoard, c_board_size> ret;
+	for (auto s = 0, offset = 0; s < c_board_size; s++) {
 		// Calculate the possible amount of permuations for the square mask.
 		const uint32_t perm_amount = 1 << pcnt(IS_DIAGONAL(slider_type) ? bishop_masks[s] : rook_masks[s]);
 		ret[s] = offset;
@@ -168,7 +179,7 @@ template <SliderType slider_type>
 constexpr auto init_pext_table() {
 	std::array<BitBoard, IS_DIAGONAL(slider_type) ? bishop_pext_size : rook_pext_size> ret{};
 	// For each square, we generate all attack boards and store them at the corresponding index.
-	for (auto s = 0, offset = 0; s < BOARD_SIZE; ++s) {
+	for (auto s = 0, offset = 0; s < c_board_size; ++s) {
 		// Calculate the possible amount of permuations for the square mask.
 		const uint32_t perm_amount = 1 << pcnt(IS_DIAGONAL(slider_type) ? bishop_masks[s] : rook_masks[s]);
 		// Generate all the permuations.
@@ -190,17 +201,6 @@ const std::array<BitBoard, rook_pext_size> rook_pext_atk = init_pext_table<Slide
 
 // *= Bishop and rook masks *=
 
-// Return the maximum amount of permutations possible for a given slider type.
-// This is uded to determine the size of the attack board table.
-template<SliderType slider_type>
-inline constexpr int max_perms() {
-	if constexpr IS_DIAGONAL(slider_type) {
-		return MAX_PERM_BISH;
-	} else {
-		return MAX_PERM_ROOK;
-	}
-}
-
 // Make lookup table for slider pieces.
 template<SliderType slider_type>
 constexpr auto create_attack_table() {
@@ -211,13 +211,13 @@ constexpr auto create_attack_table() {
 	constexpr auto on_fly = IS_DIAGONAL(slider_type) ? bishop_attack_on_fly : rook_attack_on_fly;
 
 	// Generate all possible attack boards. 
-	std::array<std::array<BitBoard, max_perms<slider_type>()>, BOARD_SIZE> values{};
-	for (int s = 0; s < BOARD_SIZE; s++) {
+	std::array<std::array<BitBoard, max_perms<slider_type>()>, c_board_size> values{};
+	for (int s = 0; s < c_board_size; s++) {
 		// Get the relevant mask for the current s. This mask will be used
 		// to determine the blockers, only blockers on the mask are relevant.
 		const BitBoard mask = masks[s];
 		// Amount of bits in the mask, needed for index calculation.
-		const int relevant_bits = IS_DIAGONAL(slider_type) ? REL_BISH_BITS[s] : REL_ROOK_BITS[s];
+		const int relevant_bits = IS_DIAGONAL(slider_type) ? c_rel_bish_bits[s] : c_rel_rook_bits[s];
 		// Generate an array of all possible permutations for the mask.
 		const auto blockers = create_all_perms<slider_type>(mask);
 		for (const auto &blocker_board : blockers) {
@@ -249,16 +249,16 @@ uint64_t find_magic(const Square s) {
 	constexpr BitBoard mask = IS_DIAGONAL(slider_type) ? bishop_masks[s] : rook_masks[s];
 	constexpr auto occ = create_all_perms<max_perms<slider_type>()>(mask);
 	// Calculate the actual amount of permutations possible with current mask.
-	constexpr int relevant_bits = IS_DIAGONAL(slider_type) ? REL_BISH_BITS[s] : REL_ROOK_BITS[s];
+	constexpr int relevant_bits = IS_DIAGONAL(slider_type) ? c_rel_bish_bits[s] : c_rel_rook_bits[s];
 	constexpr int occ_indices = 1 << relevant_bits;
 	// Generate attack boards for all the permutations.
 	for(int i = 0; i < occ_indices; i++) 
 		attacks[i] = IS_DIAGONAL(slider_type) ? bishop_attack_on_fly(s, occ[i]) : rook_attack_on_fly(s, occ[i]);
 	// Brute force a magic number.
-	for(uint64_t r = 0; r < MAX_MAGIC_ATTEMPTS; r++) {
+	for(uint64_t r = 0; r < c_max_magic_attempts; r++) {
 		const uint64_t candidate = random_u64();
 		// Skip garbage candidates.
-		if(pcnt((mask * candidate) & MIN_MAGIC_VALUE) < 6) continue;
+		if(pcnt((mask * candidate) & c_min_magic_value) < 6) continue;
 		// Reset used array to zero.
 		for(int i = 0; i < occ_indices; i++) used[i] = 0;
 		// Check if magic number generates a unique index for each blocker board.

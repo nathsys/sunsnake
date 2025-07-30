@@ -2,6 +2,7 @@
 #include "defaults.hpp"
 #include "dynamic_tables.hpp"
 #include "testing.hpp"
+#include "move_counter.hpp"
 
 int main() {
     #ifdef run_tests 
@@ -14,4 +15,7 @@ int main() {
     Lookup::init_magics<true>();
     #endif
     #endif
+
+    Board board;
+    move_counting::count<3, get_initial_gamestate()>(board);
 }

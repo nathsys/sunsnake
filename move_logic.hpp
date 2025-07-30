@@ -23,24 +23,6 @@ inline BitBoard get_rook_move(const Square square, const BitBoard occ) {
 	return Lookup::rook_pext_atk[Lookup::rook_pext_offset[square] + static_cast<uint32_t>(pext(occ, Lookup::rook_masks[square]))];
 }
 
-template <SliderType slider_type>
-inline BitBoard get_slider_move(const Square square, const BitBoard occ) {
-	if constexpr (IS_DIAGONAL(slider_type)) {
-		return get_bishop_move(square, occ);
-	} else {
-		return get_rook_move(square, occ);
-	}
-}
-
-// Get pawn diagonals, without trimming any form of illegal moves or edge cases.
-template <Player player>
-static inline BitBoard get_pawn_attacks(const BitBoard piece_board) {
-	if constexpr (player == Player::white)
-		return ((piece_board & NO_LEFT_EDGE) << 9) | ((piece_board & NO_RIGHT_EDGE) << 7);
-	else
-		return ((piece_board & NO_RIGHT_EDGE) >> 9) | ((piece_board & NO_LEFT_EDGE) >> 7);
-}
-
 #else
 // Bishop moving logic.
 static inline BitBoard get_bishop_move(const Square square, const BitBoard occ) {
@@ -60,6 +42,52 @@ static inline BitBoard get_rook_move(const Square square, const BitBoard occ) {
 	return Lookup::rook_attacks[square][occupancy];
 }
 #endif
+
+template <PieceType piece>
+inline BitBoard get_slider_move(const Square square, const BitBoard occ) {
+	if constexpr (get_slider_type<piece>() == SliderType::diagonal) {
+		return get_bishop_move(square, occ);
+	} else {
+		return get_rook_move(square, occ);
+	}
+}
+
+template <Player player>
+inline BitBoard get_pawn_forward(const BitBoard piece_board) {
+	if constexpr (player == Player::white)
+		return piece_board << 8;
+	else
+		return piece_board >> 8;
+}
+
+// Pawn move including double push.
+template <Player player>
+inline BitBoard get_pawn_double(const BitBoard piece_board, const BitBoard occ) {
+	const BitBoard single = get_pawn_forward<player>(piece_board) & ~occ;
+	return get_pawn_forward<player>(single) & ~occ;
+}
+
+// Direction specific pawn attacks.
+template <Player player, bool left>
+inline BitBoard get_pawn_attack(const BitBoard piece_board) {
+	if constexpr (player == Player::white) {
+		if constexpr (left)
+			return (piece_board & c_no_left_edge) << 9;
+		else
+			return (piece_board & c_no_right_edge) << 7;
+	} else {
+		if constexpr (left)
+			return (piece_board & c_no_left_edge) >> 7;
+		else
+			return (piece_board & c_no_right_edge) >> 9;
+	}
+}
+
+// Get pawn diagonals, without trimming any form of illegal moves or edge cases.
+template <Player player>
+inline BitBoard get_pawn_attacks(const BitBoard piece_board) {
+	return get_pawn_attack<player, true>(piece_board) | get_pawn_attack<player, false>(piece_board);
+}
 
 // Queen move logic.
 inline BitBoard get_queen_move(const Square square, const BitBoard occ) {

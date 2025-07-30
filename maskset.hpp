@@ -14,6 +14,7 @@ struct MaskSet {
 	BitBoard pinmask_orth = 0;
 	BitBoard check_mask = 0;
 	BitBoard nopin = 0;
+	BitBoard en_passant = 0;
 
 	int checkers = 0;
 
@@ -21,19 +22,20 @@ struct MaskSet {
 
 	// Create all the needed masks for the current position.
 	template <Player player>
-	void create_masks(Board& b, Square king_square) {
-
+	void create_masks(Board& b) {
 		// Reset all the masks.
 		pinmask_dg = 0;
 		pinmask_orth = 0;
 		check_mask = 0;
 		checkers = 0;
 
-		BitBoard opp_board = b.get_player_occ<player>();
+		Square king_square = lbit(b.get_piece_board<player, PieceType::king>());
+
+		BitBoard opp_board = b.get_player_occ<opponent<player>()>();
 		BitBoard own_board = b.get_player_occ<player>();
 
 		// Player can move to all squares that are not occupied by own pieces.
-		legal_squares = !own_board;
+		legal_squares = ~own_board;
 
 		// Get opponent sliders.
 		BitBoard eq = b.get_piece_board<opponent<player>(), PieceType::queen>();
@@ -46,7 +48,7 @@ struct MaskSet {
 
 		// Get knight and pawn checkers.
 		BitBoard k_checkers = get_knight_move(king_square) & b.get_piece_board<opponent<player>(), PieceType::knight>();
-		BitBoard p_checkers = get_pawn_diags<player>(square_to_mask(king_square)) & b.get_piece_board<opponent<player>(), PieceType::pawn>();
+		BitBoard p_checkers = get_pawn_attacks<player>(b.get_piece_board<player, PieceType::king>()) & b.get_piece_board<opponent<player>(), PieceType::pawn>();
 
 		if (k_checkers) {
 			check_mask |= k_checkers;
@@ -63,7 +65,7 @@ struct MaskSet {
 				Square src = pop(pinboard);
 				BitBoard between = Lookup::between_squares[king_square][src];
 
-				if(popcnt(between & own_board)) {
+				if(pcnt(between & own_board)) {
 					goal_mask |= between;
 				} else {
 					check_mask |= between;
