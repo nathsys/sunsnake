@@ -22,54 +22,56 @@ struct MaskSet {
 
 	// Create all the needed masks for the current position.
 	template <Player player>
-	void create_masks(Board& b) {
+	void create_masks(const Board& b) {
 		// Reset all the masks.
 		pinmask_dg = 0;
 		pinmask_orth = 0;
 		check_mask = 0;
 		checkers = 0;
 
-		Square king_square = lbit(b.get_piece_board<player, PieceType::king>());
+		const Square king_square = lbit(b.get_piece_board<player, PieceType::king>());
 
-		BitBoard opp_board = b.get_player_occ<opponent<player>()>();
-		BitBoard own_board = b.get_player_occ<player>();
+		const BitBoard opp_board = b.get_player_occ<opponent<player>()>();
+		const BitBoard own_board = b.get_player_occ<player>();
 
 		// Player can move to all squares that are not occupied by own pieces.
 		legal_squares = ~own_board;
 
 		// Get opponent sliders.
-		BitBoard eq = b.get_piece_board<opponent<player>(), PieceType::queen>();
-		BitBoard eb = b.get_piece_board<opponent<player>(), PieceType::bishop>();
-		BitBoard er = b.get_piece_board<opponent<player>(), PieceType::rook>();
-		
+		const BitBoard eq = b.get_piece_board<opponent<player>(), PieceType::queen>();
+		const BitBoard eb = b.get_piece_board<opponent<player>(), PieceType::bishop>();
+		const BitBoard er = b.get_piece_board<opponent<player>(), PieceType::rook>();
+
 		// Get the current pinners.
 		BitBoard diag_pinners = get_bishop_move(king_square, opp_board) & (eb | eq);
 		BitBoard orth_pinners = get_rook_move(king_square, opp_board) & (er | eq);
 
 		// Get knight and pawn checkers.
-		BitBoard k_checkers = get_knight_move(king_square) & b.get_piece_board<opponent<player>(), PieceType::knight>();
-		BitBoard p_checkers = get_pawn_attacks<player>(b.get_piece_board<player, PieceType::king>()) & b.get_piece_board<opponent<player>(), PieceType::pawn>();
+		const BitBoard k_checkers = get_knight_move(king_square) & b.get_piece_board<opponent<player>(), PieceType::knight>();
+		const BitBoard p_checkers = get_pawn_attacks<player>(b.get_piece_board<player, PieceType::king>()) & b.get_piece_board<opponent<player>(), PieceType::pawn>();
+		const BitBoard checker_boards = k_checkers | p_checkers;
 
-		if (k_checkers) {
-			check_mask |= k_checkers;
-			checkers++;
-		} else if (p_checkers) {
-			check_mask |= p_checkers;
-			checkers++;
-		}
+		if (checker_boards) {
+			check_mask |= checker_boards;
+			checkers = pcnt(checkers);
+		} 
 
 		// Checks how many pieces are between the king and the pinner.
 		// If there are no pieces, then the king is not pinned.
 		auto process_pinners = [&](BitBoard& pinboard, BitBoard& goal_mask) {
 			while (pinboard) {
-				Square src = pop(pinboard);
-				BitBoard between = Lookup::between_squares[king_square][src];
+				const Square src = pop(pinboard);
+				const BitBoard between = Lookup::between_squares[king_square][src];
 
-				if(pcnt(between & own_board)) {
-					goal_mask |= between;
-				} else {
+				// Check if we have pieces between the king and the pinner.
+				switch (pcnt(between & own_board)) {
+				case 0:
 					check_mask |= between;
 					checkers++;
+					break;
+				case 1:
+					goal_mask |= between;
+					break;
 				}
 			}
 		};

@@ -42,7 +42,7 @@ inline void move_piece(Board& b, BitBoard move) {
 
 template <Player player, PieceType piece, PieceType captured>
 inline void capture_move(Board& b, BitBoard from, BitBoard to) {
-	remove_from_board<player, captured>(b, to);
+	remove_from_board<opponent<player>(), captured>(b, to);
 	move_piece<player, piece>(b, from | to);
 }
 

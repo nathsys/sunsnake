@@ -112,4 +112,52 @@ struct Board {
 		else if (get_piece_board<player, PieceType::king>() & mask) return PieceType::king;
 		throw std::runtime_error("No piece found.");
 	}
+
+	inline PieceType get_piece_type(BitBoard mask) const {
+		if (w_pawn & mask) return PieceType::pawn;
+		else if (w_knight & mask) return PieceType::knight;
+		else if (w_bishop & mask) return PieceType::bishop;
+		else if (w_rook & mask) return PieceType::rook;
+		else if (w_queen & mask) return PieceType::queen;
+		else if (w_king & mask) return PieceType::king;
+		else if (b_pawn & mask) return PieceType::pawn;
+		else if (b_knight & mask) return PieceType::knight;
+		else if (b_bishop & mask) return PieceType::bishop;
+		else if (b_rook & mask) return PieceType::rook;
+		else if (b_queen & mask) return PieceType::queen;
+		else if (b_king & mask) return PieceType::king;
+		else return PieceType::none; 
+	}
+
+	inline void print_board() const {
+		std::cout << "   a b c d e f g h\n";
+		std::cout << " +-----------------+\n";
+		for (int row = 7; row >= 0; row--) {
+			std::cout << row + 1 << "| ";
+			for (int col = 7; col >= 0; col--) {
+				Square square = row * 8 + col;
+				BitBoard mask = square_to_mask(square);
+				char piece = ' ';
+				bool is_white = w_board & mask;
+				bool is_black = b_board & mask;
+				PieceType type = get_piece_type(mask);
+
+				switch (type) {
+					case PieceType::king:   piece = 'K'; break;
+					case PieceType::queen:  piece = 'Q'; break;
+					case PieceType::rook:   piece = 'R'; break;
+					case PieceType::bishop: piece = 'B'; break;
+					case PieceType::knight: piece = 'N'; break;
+					case PieceType::pawn:   piece = 'P'; break;
+					default:                piece = ' '; break;
+				}
+				if (is_black) piece = tolower(piece);
+				if (!is_white && !is_black) piece = ' ';
+				std::cout << piece << ' ';
+			}
+			std::cout << "|" << row + 1 << "\n";
+		}
+		std::cout << " +-----------------+\n";
+		std::cout << "   a b c d e f g h" << std::endl;
+	}
 };

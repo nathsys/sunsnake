@@ -1,8 +1,10 @@
 #include <iostream>
 #include "defaults.hpp"
 #include "dynamic_tables.hpp"
+#include "move_logic.hpp"
 #include "testing.hpp"
 #include "move_counter.hpp"
+#include "util.hpp"
 
 int main() {
     #ifdef run_tests 
@@ -17,5 +19,6 @@ int main() {
     #endif
 
     Board board;
+    board.print_board();
     move_counting::count<3, get_initial_gamestate()>(board);
 }

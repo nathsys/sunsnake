@@ -100,7 +100,8 @@ enum class PieceType {
     queen,
     queen_diagonal,
     queen_orthogonal,
-    king
+    king,
+    none
 };
 
 // Maximum depth for move counting.

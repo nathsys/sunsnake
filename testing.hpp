@@ -16,11 +16,10 @@ namespace Testing {
     // based attack generation.
     static void test_magic_atk_lookup() {
         for(int i = 0; i < 64; i++) {
-            for(BitBoard j = 0; j < 64; j++) {
-                BitBoard j_mask = square_to_mask(j);
+            for(BitBoard j = 0; j < 1000; j++) {
                 // Test bishop attack logic.
-                BitBoard b1 = Lookup::bishop_attack_on_fly(i, j_mask);
-                BitBoard b2 = get_bishop_move(i, j_mask);
+                BitBoard b1 = Lookup::bishop_attack_on_fly(i, j);
+                BitBoard b2 = get_bishop_move(i, j);
                 if (b1 != b2) {
                     std::cout << "Bishop failed at sq=" << i << " occ=" << j << std::endl;
                     std::cout << "On-the-fly:" << std::endl;
@@ -28,13 +27,13 @@ namespace Testing {
                     std::cout << "Magic:" << std::endl;
                     print_bitboard(b2);
                     std::cout << "Blocker:" << std::endl;
-                    print_bitboard(j_mask);
+                    print_bitboard(j);
                     assert(b1 == b2 && "Bishop attack logic failed!");
                 }
 
                 // Test rook attack logic.
-                BitBoard r1 = Lookup::rook_attack_on_fly(i, j_mask);
-                BitBoard r2 = get_rook_move(i, j_mask);
+                BitBoard r1 = Lookup::rook_attack_on_fly(i, j);
+                BitBoard r2 = get_rook_move(i, j);
                 if (r1 != r2) {
                     std::cout << "Rook failed at sq=" << i << " occ=" << j << std::endl;
                     std::cout << "On-the-fly:" << std::endl;
@@ -42,7 +41,7 @@ namespace Testing {
                     std::cout << "Magic:" << std::endl;
                     print_bitboard(r2);
                     std::cout << "Blocker:" << std::endl;
-                    print_bitboard(j_mask);
+                    print_bitboard(j);
                     assert(r1 == r2 && "Rook attack logic failed!");
                 }
             }

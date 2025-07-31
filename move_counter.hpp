@@ -19,13 +19,13 @@ size_t count_nodes(auto &masks, Board &board);
 template<int depth_left, GameState state, PieceType piece, PieceType captured, bool print>
 inline size_t count_capture(auto& masks, Board& board, BitBoard from, BitBoard to) {
     capture_move<state.player(), piece, captured>(board, from, to);
-    uint64_t ret = count_nodes<depth_left-1, state.switch_player()>(masks, board);
+    const uint64_t ret = count_nodes<depth_left-1, state.switch_player()>(masks, board);
     unmake_capture_move<state.player(), piece, captured>(board, from, to);
 
     // If we are printing moves, print the move.
     #ifdef count_moves_print
     if constexpr (print)
-        print_movecnt(from, to, ret);
+        print_movecount(from, to, ret);
     #endif
 
     return ret;
@@ -35,14 +35,14 @@ inline size_t count_capture(auto& masks, Board& board, BitBoard from, BitBoard t
 template<int depth_left, GameState state, PieceType piece, bool print>
 inline size_t count_plain_move(auto& masks, Board& board, const BitBoard move) {
     move_piece<state.player(), piece>(board, move);
-    uint64_t ret = count_nodes<depth_left-1, state.switch_player()>(masks, board);
+    const uint64_t ret = count_nodes<depth_left-1, state.switch_player()>(masks, board);
     move_piece<state.player(), piece>(board, move);
 
     // If we are printing moves, print the move.
     #ifdef count_moves_print
     if constexpr (print) {
-        BitBoard from = move & board.get_player_occ<state.player()>();
-        print_movecnt(from, move & ~from, ret);
+        const BitBoard from = move & board.get_player_occ<state.player()>();
+        print_movecount(from, move & ~from, ret);
     }
     #endif
 
@@ -64,6 +64,8 @@ inline size_t count_capture(auto& masks, Board& board, const BitBoard from, cons
     else if (board.get_piece_board<opponent<state.player()>(), PieceType::queen>() & to) 
         return count_capture<depth_left, state, piece, PieceType::queen, print>(masks, board, from, to);
     else if (board.get_piece_board<opponent<state.player()>(), PieceType::king>() & to)  {
+        board.print_board();
+        state.print_state_data();
         throw std::runtime_error("Cannot capture a king. This should never happen.");
     }
     throw std::runtime_error("No piece found to capture.");
@@ -72,7 +74,7 @@ inline size_t count_capture(auto& masks, Board& board, const BitBoard from, cons
 // Given an attack board, count all the captures for a specific piece type.
 template<int depth_left, GameState state, PieceType piece, bool print>
 inline size_t count_all_captures(auto& masks, Board& board, BitBoard attack_board, const BitBoard from) {
-    if constexpr (!depth_left && piece != PieceType::king) return pcnt(attack_board);
+    if constexpr (depth_left == 1 && piece != PieceType::king && !print) return pcnt(attack_board);
     size_t ret = 0;
     while(attack_board) {
         BitBoard to = pop_extract(attack_board);
@@ -92,7 +94,7 @@ inline size_t count_all_captures(auto& masks, Board& board, BitBoard attack_boar
 template <int depth_left, GameState state, PieceType piece, bool print>
 inline size_t count_all_plain_moves(auto& masks, Board& board, BitBoard attack_board, const BitBoard from) {
     // If we are at the last depth, we can just return the number of moves.
-    if constexpr (!depth_left && piece != PieceType::king) return pcnt(attack_board);
+    if constexpr (depth_left == 1 && piece != PieceType::king && !print) return pcnt(attack_board);
     size_t ret = 0;
     while(attack_board) {
         BitBoard to = pop_extract(attack_board);
@@ -127,15 +129,15 @@ inline size_t count_plain_and_captures(auto& masks, Board& board, BitBoard piece
             else if constexpr (piece == PieceType::pawn) 
                 attacks = get_pawn_attacks<state.player()>(from) & move_mask;
             else 
-                attacks = get_slider_move<piece>(lbit(from), board.occ_board) & move_mask;
+                attacks = get_slider_move<piece>(lbit_from_right(from), board.occ_board) & move_mask;
             
             if (!attacks) continue; 
+
+            print_bitboard(from);
+            print_bitboard(attacks);
+
             ret += count_all_plain_moves<depth_left, state, piece, print>(masks, board, attacks & ~board.get_player_occ<opponent<state.player()>()>(), from);
             ret += count_all_captures<depth_left, state, piece, print>(masks, board, attacks & board.get_player_occ<opponent<state.player()>()>(), from);
-
-            if(piece == PieceType::knight) {
-                print_bitboard(board.get_piece_board<state.player(), PieceType::knight>());
-            }
         } 
         return ret;
     }
@@ -174,8 +176,7 @@ inline size_t count_slider_moves(auto& masks, Board& board) {
 }
 
 template<int depth_left, GameState state, bool print>
-inline size_t count_castling_moves(auto& masks, Board& board) 
-{
+inline size_t count_castling_moves(auto& masks, Board& board) {
     // To do.
     return 0;
 }
@@ -194,7 +195,7 @@ inline size_t count_pawn_moves(auto& masks, Board& board, BitBoard pawns, BitBoa
     move_mask ^= captures;
     BitBoard pawns_on_start = pawns & (state.player() == Player::white ? c_promotion_from_b : c_promotion_from_w);
     size_t ret = 0;
-    if constexpr (!depth_left) {
+    if constexpr (depth_left == 1 && !print) {
         ret += pcnt(get_pawn_double<state.player()>(pawns_on_start, board.occ_board) & move_mask);
         ret += pcnt(get_pawn_forward<state.player()>(pawns) & move_mask);
         return ret + pcnt(get_pawn_attacks<state.player()>(pawns) & captures);
@@ -233,7 +234,7 @@ inline size_t count_pawn_moves(auto& masks, Board& board, BitBoard pawns, BitBoa
 
             #ifdef count_moves_print
             if constexpr (print) {
-                print_movecnt(move & !to, to, ret - old);
+                print_movecount(move & ~to, to, ret - old);
             }
             #endif
         }
@@ -288,7 +289,7 @@ size_t count_nodes(auto &masks, Board &board) {
         ret += count_plain_and_captures<depth_left, state, PieceType::knight, print>(
              masks, board, board.get_piece_board<state.player(), PieceType::knight>(), mask.legal_squares
         );
-        // ret += count_slider_moves<depth_left, state>(masks, board);
+        ret += count_slider_moves<depth_left, state, print>(masks, board);
         ret += count_all_pawn_moves<depth_left, state, print>(masks, board);
         if constexpr (state.can_ep()) ret += count_en_passant_moves<depth_left, state, print>(masks, board);
         
