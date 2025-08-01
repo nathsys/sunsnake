@@ -20,5 +20,19 @@ int main() {
 
     Board board;
     board.print_board();
-    move_counting::count<3, get_initial_gamestate()>(board);
+
+    while (true) {
+        std::cout << "Enter a command (q to quit): ";
+        std::string command;
+        std::getline(std::cin, command);
+        if (command == "q") break;
+
+        if (command == "print") {
+            board.print_board();
+        } else if (command == "perft") {
+            move_counting::count<get_initial_gamestate()>(board, 7);
+        } else {
+            std::cout << "Unknown command: " << command << std::endl;
+        }
+    }
 }

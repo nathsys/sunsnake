@@ -133,9 +133,6 @@ inline size_t count_plain_and_captures(auto& masks, Board& board, BitBoard piece
             
             if (!attacks) continue; 
 
-            print_bitboard(from);
-            print_bitboard(attacks);
-
             ret += count_all_plain_moves<depth_left, state, piece, print>(masks, board, attacks & ~board.get_player_occ<opponent<state.player()>()>(), from);
             ret += count_all_captures<depth_left, state, piece, print>(masks, board, attacks & board.get_player_occ<opponent<state.player()>()>(), from);
         } 
@@ -313,6 +310,23 @@ static size_t count(Board& board) {
 	std::cout << std::round((nodes / 1'000'000)) / time_cost << " million nodes per second" << '\n';
 	std::cout << "================================================================================ \n";
 	return nodes;
+}
+
+template <GameState state>
+static size_t count(Board& board, int depth) {
+    switch (depth) {
+        case 1: return count<1, state>(board);
+        case 2: return count<2, state>(board);
+        case 3: return count<3, state>(board);
+        case 4: return count<4, state>(board);
+        case 5: return count<5, state>(board);
+        case 6: return count<6, state>(board);
+        case 7: return count<7, state>(board);
+        case 8: return count<8, state>(board);
+        case 9: return count<9, state>(board);
+        case 10: return count<10, state>(board);
+        default: throw std::runtime_error("Depth must be between 1 and 10.");
+    }
 }
 
 } // namespace move_counting
