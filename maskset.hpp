@@ -5,7 +5,8 @@
 
 #pragma once
 
-struct MaskSet {
+struct MaskSet
+{
 	// squares that are empty or enemy;
 	BitBoard legal_squares;
 
@@ -22,14 +23,15 @@ struct MaskSet {
 
 	// Create all the needed masks for the current position.
 	template <Player player>
-	void create_masks(const Board& b) {
+	void create_masks(const Board &b)
+	{
 		// Reset all the masks.
 		pinmask_dg = 0;
 		pinmask_orth = 0;
 		check_mask = 0;
 		checkers = 0;
 
-		const Square king_square = lbit(b.get_piece_board<player, PieceType::king>());
+		const Square king_square = lbit_from_right(b.get_piece_board<player, PieceType::king>());
 
 		const BitBoard opp_board = b.get_player_occ<opponent<player>()>();
 		const BitBoard own_board = b.get_player_occ<player>();
@@ -51,20 +53,24 @@ struct MaskSet {
 		const BitBoard p_checkers = get_pawn_attacks<player>(b.get_piece_board<player, PieceType::king>()) & b.get_piece_board<opponent<player>(), PieceType::pawn>();
 		const BitBoard checker_boards = k_checkers | p_checkers;
 
-		if (checker_boards) {
+		if (checker_boards)
+		{
 			check_mask |= checker_boards;
 			checkers = pcnt(checkers);
-		} 
+		}
 
 		// Checks how many pieces are between the king and the pinner.
 		// If there are no pieces, then the king is not pinned.
-		auto process_pinners = [&](BitBoard& pinboard, BitBoard& goal_mask) {
-			while (pinboard) {
+		auto process_pinners = [&](BitBoard &pinboard, BitBoard &goal_mask)
+		{
+			while (pinboard)
+			{
 				const Square src = pop(pinboard);
 				const BitBoard between = Lookup::between_squares[king_square][src];
 
 				// Check if we have pieces between the king and the pinner.
-				switch (pcnt(between & own_board)) {
+				switch (pcnt(between & own_board))
+				{
 				case 0:
 					check_mask |= between;
 					checkers++;
