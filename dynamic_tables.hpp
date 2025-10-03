@@ -80,11 +80,11 @@ namespace Lookup
 
 	// Return the maximum amount of permutations possible for a given slider type.
 	// This is uded to determine the size of the attack board table.
-	template <SliderType slider_type>
+	template <SliderType slider_override>
 	inline constexpr int max_perms()
 	{
 		if constexpr
-			IS_DIAGONAL(slider_type)
+			IS_DIAGONAL(slider_override)
 			{
 				return c_max_perm_bish;
 			}
@@ -95,10 +95,10 @@ namespace Lookup
 	}
 
 	// Given a movement mask, return an array containing all possible permutations of the mask.
-	template <SliderType slider_type>
+	template <SliderType slider_override>
 	constexpr auto create_all_perms(const BitBoard movement_mask)
 	{
-		std::array<BitBoard, max_perms<slider_type>()> blocker_boards{};
+		std::array<BitBoard, max_perms<slider_override>()> blocker_boards{};
 		// Use the bitcount to calculate the amount of permutations.
 		const int move_count = pcnt(movement_mask);
 		const int perm_amount = 1 << move_count;
@@ -123,7 +123,7 @@ namespace Lookup
 	// direction as these are redundant, this is because if an edge is reached, the
 	// piece will always be able to attack the edge s.
 	// Primary template declaration
-	template <SliderType slider_type>
+	template <SliderType slider_override>
 	constexpr BitBoard make_slider_mask(const Square s);
 
 	// Rook specialization
@@ -164,12 +164,12 @@ namespace Lookup
 
 	// Make lookup tables for the attack masks. This assures that the masks are calculated at compile time,
 	// so they are available at runtime without the need to calculate them again.
-	template <SliderType slider_type>
+	template <SliderType slider_override>
 	constexpr auto make_mask_table()
 	{
 		std::array<BitBoard, c_board_size> values{};
 		for (int s = 0; s < c_board_size; s++)
-			values[s] = make_slider_mask<slider_type>(s);
+			values[s] = make_slider_mask<slider_override>(s);
 		return values;
 	}
 
@@ -237,26 +237,26 @@ namespace Lookup
 	// *= Bishop and rook masks *=
 
 	// Make lookup table for slider pieces.
-	template <SliderType slider_type>
+	template <SliderType slider_override>
 	constexpr auto create_attack_table()
 	{
 		// Fetch the right data and function depending on whether the function call is for
 		// bishop or rook movement.
-		constexpr auto &masks = IS_DIAGONAL(slider_type) ? bishop_masks : rook_masks;
-		constexpr auto &magics = IS_DIAGONAL(slider_type) ? bishop_magic_numbers : rook_magic_numbers;
-		constexpr auto on_fly = IS_DIAGONAL(slider_type) ? bishop_attack_on_fly : rook_attack_on_fly;
+		constexpr auto &masks = IS_DIAGONAL(slider_override) ? bishop_masks : rook_masks;
+		constexpr auto &magics = IS_DIAGONAL(slider_override) ? bishop_magic_numbers : rook_magic_numbers;
+		constexpr auto on_fly = IS_DIAGONAL(slider_override) ? bishop_attack_on_fly : rook_attack_on_fly;
 
 		// Generate all possible attack boards.
-		std::array<std::array<BitBoard, max_perms<slider_type>()>, c_board_size> values{};
+		std::array<std::array<BitBoard, max_perms<slider_override>()>, c_board_size> values{};
 		for (int s = 0; s < c_board_size; s++)
 		{
 			// Get the relevant mask for the current s. This mask will be used
 			// to determine the blockers, only blockers on the mask are relevant.
 			const BitBoard mask = masks[s];
 			// Amount of bits in the mask, needed for index calculation.
-			const int relevant_bits = IS_DIAGONAL(slider_type) ? c_rel_bish_bits[s] : c_rel_rook_bits[s];
+			const int relevant_bits = IS_DIAGONAL(slider_override) ? c_rel_bish_bits[s] : c_rel_rook_bits[s];
 			// Generate an array of all possible permutations for the mask.
-			const auto blockers = create_all_perms<slider_type>(mask);
+			const auto blockers = create_all_perms<slider_override>(mask);
 			for (const auto &blocker_board : blockers)
 			{
 				// Calculate the index using magic number index formula.

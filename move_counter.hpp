@@ -27,18 +27,24 @@ namespace move_counting
     }
 
     // Given an attack board and a specific square, get all the captures for a specific piece type.
-    template <PieceType piece, bool capture>
-    inline void moves_for_piece(BitBoard attack_board, const Square from, MoveStack &moves)
+    template <PieceType piece, Player player, bool capture>
+    inline void moves_for_piece(Board &board, BitBoard attack_board, const Square from, MoveStack &moves)
     {
         while (attack_board)
         {
             Square to = pop(attack_board);
-            moves.push(capture ? get_capture(from, to) : get_plain(from, to));
+            Move move = capture ? get_capture(from, to) : get_plain(from, to);
+
+            if constexpr (piece == PieceType::king)
+                if (board.is_attacked<player>(to))
+                    continue;
+
+            moves.push(move);
         }
     }
 
     // Count all the moves (plain + captures) for a specific piece type.
-    template <PieceType piece, Player player, SliderType slider_type = SliderType::none>
+    template <PieceType piece, Player player, SliderType slider_override = SliderType::none>
     inline void moves_for_piecetype(Board &board, BitBoard piece_board, BitBoard move_mask, MoveStack &moves)
     {
         // For each piece instance, get the moves.
@@ -51,13 +57,13 @@ namespace move_counting
             else if constexpr (piece == PieceType::pawn)
                 attacks = get_pawn_attacks<player>(square_to_mask(from)) & move_mask;
             else
-                attacks = get_slider_move<piece, slider_type>(from, board.occ_board) & move_mask;
+                attacks = get_slider_move<piece, slider_override>(from, board.occ_board) & move_mask;
 
             if (!attacks)
                 continue;
 
-            moves_for_piece<piece, false>(attacks & ~board.occ_board, from, moves);
-            moves_for_piece<piece, true>(attacks & board.get_player_occ<opponent<player>()>(), from, moves);
+            moves_for_piece<piece, player, false>(board, attacks & ~board.occ_board, from, moves);
+            moves_for_piece<piece, player, true>(board, attacks & board.get_player_occ<opponent<player>()>(), from, moves);
         }
     }
 
@@ -106,14 +112,15 @@ namespace move_counting
     }
 
     template <Player player>
-    inline void count_pawn_moves(BitBoard occ_board, BitBoard pawns, BitBoard move_mask, MoveStack &moves)
+    inline void count_pawn_moves(Board &board, BitBoard pawns, BitBoard move_mask, MoveStack &moves)
     {
         // No moves are possible.
         if (!(move_mask && pawns))
             return;
-        // Remove all the captures from the move mask.
-        BitBoard captures = move_mask & occ_board;
-        move_mask ^= captures;
+        // Get enemy pieces that can be captured
+        BitBoard enemy_pieces = move_mask & board.get_player_occ<opponent<player>()>();
+        // Remove all occupied squares from forward move mask
+        move_mask &= ~board.occ_board;
         BitBoard pawns_on_start = pawns & (player == Player::white ? c_promotion_from_b : c_promotion_from_w);
 
         // Count all the normal moves for the pawns.
@@ -122,8 +129,8 @@ namespace move_counting
             const BitBoard from = pop_extract(pawns);
             const Square from_sq = lbit_from_right(from);
             const BitBoard forward = get_pawn_forward<player>(from) & move_mask;
-            const BitBoard left_attack = get_pawn_attack<player, true>(from) & captures;
-            const BitBoard right_attack = get_pawn_attack<player, false>(from) & captures;
+            const BitBoard left_attack = get_pawn_attack<player, true>(from) & enemy_pieces;
+            const BitBoard right_attack = get_pawn_attack<player, false>(from) & enemy_pieces;
             if (forward)
                 moves.push(get_plain(from_sq, lbit_from_right(forward)));
             if (left_attack)
@@ -137,7 +144,7 @@ namespace move_counting
         {
             const BitBoard from = pop_extract(pawns_on_start);
             const Square from_sq = lbit_from_right(from);
-            BitBoard attacks = get_pawn_double<player>(from, occ_board) & move_mask;
+            BitBoard attacks = get_pawn_double<player>(from, board.occ_board) & move_mask;
             while (attacks)
             {
                 const BitBoard to = pop_extract(attacks);
@@ -157,8 +164,8 @@ namespace move_counting
         const BitBoard pinned_pawns = normal_pawns & ~not_pinned;
         normal_pawns ^= pinned_pawns;
         // Get all the moves for pinned and normal pawns.
-        count_pawn_moves<player>(occ_board, normal_pawns, move_mask, moves);
-        count_pawn_moves<player>(occ_board, pinned_pawns, move_mask ^ not_pinned, moves);
+        count_pawn_moves<player>(board, normal_pawns, move_mask, moves);
+        count_pawn_moves<player>(board, pinned_pawns, move_mask ^ not_pinned, moves);
     }
 
     template <Player player>
@@ -166,8 +173,8 @@ namespace move_counting
     {
         Square from_sq = lbit_from_right(piece_board);
         BitBoard attacks = get_king_move(from_sq) & move_mask;
-        moves_for_piece<PieceType::king, false>(attacks & ~board.occ_board, from_sq, moves);
-        moves_for_piece<PieceType::king, true>(attacks & board.get_player_occ<opponent<player>()>(), from_sq, moves);
+        moves_for_piece<PieceType::king, player, false>(board, attacks & ~board.occ_board, from_sq, moves);
+        moves_for_piece<PieceType::king, player, true>(board, attacks & board.get_player_occ<opponent<player>()>(), from_sq, moves);
     }
 
     template <Player player>

@@ -59,14 +59,14 @@ inline BitBoard get_queen_move(const Square square, const BitBoard occ)
 	return get_bishop_move(square, occ) | get_rook_move(square, occ);
 }
 
-template <PieceType piece, SliderType slider_type = SliderType::none>
+template <PieceType piece, SliderType slider_override = SliderType::none>
 inline BitBoard get_slider_move(const Square square, const BitBoard occ)
 {
-	if constexpr (slider_type == SliderType::none && piece == PieceType::queen)
+	if constexpr (slider_override == SliderType::none && piece == PieceType::queen)
 	{
 		return get_queen_move(square, occ);
 	}
-	else if constexpr (piece == PieceType::bishop || slider_type == SliderType::diagonal)
+	else if constexpr (piece == PieceType::bishop || slider_override == SliderType::diagonal)
 	{
 		return get_bishop_move(square, occ);
 	}
