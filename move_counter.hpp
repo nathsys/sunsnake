@@ -17,19 +17,6 @@
 
 namespace move_counting
 {
-
-    // Return a capture move.
-    inline Move get_capture(Square from, Square to)
-    {
-        return MoveEncoding::capture(from, to);
-    }
-
-    // Return a quiet move.
-    inline Move get_plain(Square from, Square to)
-    {
-        return MoveEncoding::quiet_move(from, to);
-    }
-
     // Given an attack board and a specific square, get all the captures for a specific piece type.
     template <PieceType piece, Player player, bool capture>
     inline void moves_for_piece(Board &board, BitBoard attack_board, const Square from, MoveStack &moves)
@@ -37,11 +24,19 @@ namespace move_counting
         while (attack_board)
         {
             Square to = pop(attack_board);
-            Move move = capture ? get_capture(from, to) : get_plain(from, to);
-
             if constexpr (piece == PieceType::king)
-                if (board.is_attacked<player>(to))
-                    continue;
+            {
+                BitBoard king_mask = board.get_piece_board<player, PieceType::king>();
+                board.occ_board ^= king_mask;
+                if (!board.is_attacked<player>(to))
+                {
+                    Move move = capture ? MoveEncoding::capture(from, to) : MoveEncoding::quiet_move(from, to);
+                    moves.push(move);
+                }
+                board.occ_board |= king_mask;
+                continue;
+            }
+            Move move = capture ? MoveEncoding::capture(from, to) : MoveEncoding::quiet_move(from, to);
 
             moves.push(move);
         }
@@ -109,9 +104,26 @@ namespace move_counting
         return;
     }
 
-    inline void count_en_passant_moves()
+    template <Player player>
+    inline void count_en_passant_moves(Board &board, MaskSet &mask, GameState &state, MoveStack &moves)
     {
-        // To do.
+        // Simulate en passant moves and see if king is in check after the move.
+        const uint8_t ep_file = (state.data & 0b11110000) - 1 >> 4;
+        const Square ep_target = player == Player::white ? 40 + ep_file : 16 + ep_file;
+        const BitBoard ep_target_board = square_to_mask(ep_target);
+        const BitBoard capture_pawn = player == Player::white ? ep_target_board >> 8 : ep_target_board << 8;
+        BitBoard adj_pawns = board.get_piece_board<player, PieceType::pawn>() & (capture_pawn << 1 | capture_pawn >> 1);
+        adj_pawns &= player == Player::white ? c_en_passant_squares_b : c_en_passant_squares_w;
+        while (adj_pawns)
+        {
+            const BitBoard from = pop(adj_pawns);
+            make_move::ep_capture<player>(board, from, ep_target);
+            if (!board.is_attacked_by_slider<player>(lbit_from_right(board.get_piece_board<player, PieceType::king>())))
+                moves.push(MoveEncoding::ep_capture(from, ep_target));
+
+            make_move::unmake_ep_capture<player>(board, from, ep_target);
+        }
+
         return;
     }
 
@@ -136,11 +148,11 @@ namespace move_counting
             const BitBoard left_attack = get_pawn_attack<player, true>(from) & enemy_pieces;
             const BitBoard right_attack = get_pawn_attack<player, false>(from) & enemy_pieces;
             if (forward)
-                moves.push(get_plain(from_sq, lbit_from_right(forward)));
+                moves.push(MoveEncoding::quiet_move(from_sq, lbit_from_right(forward)));
             if (left_attack)
-                moves.push(get_capture(from_sq, lbit_from_right(left_attack)));
+                moves.push(MoveEncoding::capture(from_sq, lbit_from_right(left_attack)));
             if (right_attack)
-                moves.push(get_capture(from_sq, lbit_from_right(right_attack)));
+                moves.push(MoveEncoding::capture(from_sq, lbit_from_right(right_attack)));
         }
 
         // Count all the double moves.
@@ -173,10 +185,10 @@ namespace move_counting
     }
 
     template <Player player>
-    inline void get_king_moves(Board &board, BitBoard piece_board, BitBoard move_mask, MoveStack &moves)
+    inline void get_king_moves(Board &board, MaskSet &mask, BitBoard piece_board, MoveStack &moves)
     {
         Square from_sq = lbit_from_right(piece_board);
-        BitBoard attacks = get_king_move(from_sq) & move_mask;
+        BitBoard attacks = get_king_move(from_sq) & mask.legal_squares;
         moves_for_piece<PieceType::king, player, false>(board, attacks & ~board.occ_board, from_sq, moves);
         moves_for_piece<PieceType::king, player, true>(board, attacks & board.get_player_occ<opponent<player>()>(), from_sq, moves);
     }
@@ -191,23 +203,26 @@ namespace move_counting
         MaskSet mask;
         mask.create_masks<player>(board);
         // King moves can always be generated.
-        get_king_moves<player>(board, board.get_piece_board<player, PieceType::king>(), mask.legal_squares, move_stack);
+        get_king_moves<player>(board, mask, board.get_piece_board<player, PieceType::king>(), move_stack);
         // If no check, we can count all the moves, including castling.
         // If there is one checker, we can only block the check or capture the piece.
         // If there are two or more checkers, we can only move the king.
         if (!mask.checkers)
             count_castling_moves();
         else if (mask.checkers == 1)
+        {
+            print_bitboard(mask.check_mask);
             mask.legal_squares &= mask.check_mask;
+        }
         else
             return move_stack.from(top);
 
         // Get all knight, pawn, and slider moves.
-        moves_for_piecetype<PieceType::knight, player>(board, board.get_piece_board<player, PieceType::knight>(), mask.legal_squares, move_stack);
+        moves_for_piecetype<PieceType::knight, player>(board, board.get_piece_board<player, PieceType::knight>() & mask.nopin, mask.legal_squares, move_stack);
         get_slider_moves<player>(mask, board, move_stack);
         count_all_pawn_moves<player>(board, mask.legal_squares, mask.nopin, move_stack);
         if (state.can_ep())
-            count_en_passant_moves();
+            count_en_passant_moves<player>(board, mask, state, move_stack);
 
         return move_stack.from(top);
     }

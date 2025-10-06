@@ -78,14 +78,22 @@ struct Board
 	template <Player player>
 	inline bool is_attacked(BitBoard pos) const
 	{
-		Square square = lbit(pos);
+		Square square = lbit_from_right(pos);
 		return (get_pawn_attacks<player>(pos) & get_piece_board<opponent<player>(), PieceType::pawn>()) || (get_knight_move(square) & get_piece_board<opponent<player>(), PieceType::knight>()) || (get_rook_move(square, occ_board) & (get_piece_board<opponent<player>(), PieceType::rook>() | get_piece_board<opponent<player>(), PieceType::queen>())) || (get_bishop_move(square, occ_board) & (get_piece_board<opponent<player>(), PieceType::bishop>() | get_piece_board<opponent<player>(), PieceType::queen>())) || (get_king_move(square) & get_piece_board<opponent<player>(), PieceType::king>());
+	}
+
+	template <Player player>
+	inline bool is_attacked_by_slider(BitBoard pos) const
+	{
+		Square square = lbit_from_right(pos);
+		return (get_rook_move(square, occ_board) & (get_piece_board<opponent<player>(), PieceType::rook>() | get_piece_board<opponent<player>(), PieceType::queen>())) || (get_bishop_move(square, occ_board) & (get_piece_board<opponent<player>(), PieceType::bishop>() | get_piece_board<opponent<player>(), PieceType::queen>()));
 	}
 
 	template <Player player>
 	inline bool is_attacked(Square pos) const
 	{
-		return (get_pawn_attacks<player>(pos) & get_piece_board<opponent<player>(), PieceType::pawn>()) || (get_knight_move(pos) & get_piece_board<opponent<player>(), PieceType::knight>()) || (get_rook_move(pos, occ_board) & (get_piece_board<opponent<player>(), PieceType::rook>() | get_piece_board<opponent<player>(), PieceType::queen>())) || (get_bishop_move(pos, occ_board) & (get_piece_board<opponent<player>(), PieceType::bishop>() | get_piece_board<opponent<player>(), PieceType::queen>())) || (get_king_move(pos) & get_piece_board<opponent<player>(), PieceType::king>());
+		BitBoard mask = square_to_mask(pos);
+		return (get_pawn_attacks<player>(mask) & get_piece_board<opponent<player>(), PieceType::pawn>()) || (get_knight_move(pos) & get_piece_board<opponent<player>(), PieceType::knight>()) || (get_rook_move(pos, occ_board) & (get_piece_board<opponent<player>(), PieceType::rook>() | get_piece_board<opponent<player>(), PieceType::queen>())) || (get_bishop_move(pos, occ_board) & (get_piece_board<opponent<player>(), PieceType::bishop>() | get_piece_board<opponent<player>(), PieceType::queen>())) || (get_king_move(pos) & get_piece_board<opponent<player>(), PieceType::king>());
 	}
 
 	template <Player player, PieceType piece>

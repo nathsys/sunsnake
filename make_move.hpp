@@ -70,13 +70,18 @@ namespace make_move
 
 	// Do pawn double forward move. Retrurns true if en passant is possible.
 	template <Player player>
-	inline bool pawn_double(Board &b, const Square from, const Square to)
+	inline void pawn_double(Board &b, const Square from, const Square to, GameState &state)
 	{
 		move_piece<player>(b, from, to);
 		// If we move pawn to a square next to a pawn, en pessant is possible for next turn.
 		const BitBoard enemy_pawns = b.get_piece_board<opponent<player>(), PieceType::pawn>();
 		const BitBoard en_passant_squares = player == Player::white ? c_en_passant_squares_w : c_en_passant_squares_b;
-		return en_passant_squares & enemy_pawns;
+		const BitBoard to_board = square_to_mask(to);
+		if (enemy_pawns & en_passant_squares & (to_board << 1 | to_board >> 1))
+		{
+			const uint8_t file = (to % 8) + 1;
+			state.data = (state.data & 0b00001111) | (file << 4);
+		}
 	}
 
 	template <Player player>
@@ -234,6 +239,9 @@ namespace make_move
 	{
 		Square from = MoveEncoding::get_from_square(move);
 		Square to = MoveEncoding::get_to_square(move);
+		flag_stack.push(state.data); // Save the game state.
+		// Clear en passant.
+		state.data &= 0b00001111;
 
 		switch (MoveEncoding::get_move_flag(move))
 		{
@@ -241,7 +249,7 @@ namespace make_move
 			move_piece<player>(board, from, to);
 			break;
 		case MoveEncoding::double_pawn_push_flag:
-			pawn_double<player>(board, from, to);
+			pawn_double<player>(board, from, to, state);
 			break;
 		case MoveEncoding::kingside_castle_flag:
 			castle<player, true>(board);
@@ -281,7 +289,7 @@ namespace make_move
 			break;
 		}
 
-		state = state.switch_player();
+		state.switch_player();
 	}
 
 	template <Player player>
@@ -335,6 +343,9 @@ namespace make_move
 			unmake_capture_promotion<player, PieceType::queen>(board, from, to, static_cast<PieceType>(flag_stack.pop()));
 			break;
 		}
+
+		state.data = flag_stack.pop(); // Restore the game state data.
+		state.switch_player();
 	}
 } // namespace make_move
 

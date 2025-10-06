@@ -58,10 +58,6 @@ static bool process_command(const std::vector<std::string> &args, Board &board, 
     {
         board.print_board();
     }
-    else if (command == "state")
-    {
-        gamestate.print_state_data();
-    }
     else
     {
         std::cout << "Unknown command or insufficient arguments. Available commands:\n";

@@ -55,8 +55,10 @@ struct MaskSet
 
 		if (checker_boards)
 		{
+			std::cout << "Checker found!\n";
 			check_mask |= checker_boards;
-			checkers = pcnt(checkers);
+			checkers = pcnt(checker_boards);
+			std::cout << "Checkers: " << checkers << "\n";
 		}
 
 		// Checks how many pieces are between the king and the pinner.
