@@ -211,7 +211,6 @@ namespace move_counting
             count_castling_moves();
         else if (mask.checkers == 1)
         {
-            print_bitboard(mask.check_mask);
             mask.legal_squares &= mask.check_mask;
         }
         else
