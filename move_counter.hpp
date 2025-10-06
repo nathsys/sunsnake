@@ -9,11 +9,15 @@
 #include <cstddef>
 #include <cstdint>
 #include <string>
+#include <chrono>
+#include <locale>
+#include <iomanip>
 
 #ifdef count_moves
 
 namespace move_counting
 {
+
     // Return a capture move.
     inline Move get_capture(Square from, Square to)
     {
@@ -228,7 +232,7 @@ namespace move_counting
             nodes += local;
         }
         if constexpr (is_root)
-            std::cout << "\nNodes searched: " << nodes << '\n';
+            std::cout << "\nNodes searched: " << format_number(nodes) << '\n';
         return nodes;
     }
 
@@ -238,10 +242,22 @@ namespace move_counting
         size_t nodes;
         MoveStack move_stack;
         FlagStack data_stack;
+
+        auto start_time = std::chrono::high_resolution_clock::now();
+
         if (state.player() == Player::white)
             nodes = perft<Player::white, true>(board, state, depth, move_stack, data_stack);
         else
             nodes = perft<Player::black, true>(board, state, depth, move_stack, data_stack);
+
+        auto end_time = std::chrono::high_resolution_clock::now();
+        auto duration = std::chrono::duration_cast<std::chrono::microseconds>(end_time - start_time);
+
+        double seconds = duration.count() / 1000000.0;
+        double nps = seconds > 0 ? nodes / seconds : 0;
+
+        std::cout << "Time: " << std::fixed << std::setprecision(3) << seconds << " seconds\n";
+        std::cout << "Nodes per second: " << format_number(static_cast<size_t>(nps)) << " NPS\n";
     }
 
 } // namespace move_counting

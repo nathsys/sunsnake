@@ -100,3 +100,16 @@ inline void print_movecount(Move move, size_t cnt)
         print_bitboard(square_to_mask(MoveEncoding::get_from_square(move)) | square_to_mask(MoveEncoding::get_to_square(move)));
     }
 }
+
+// Helper function to format numbers with commas
+inline std::string format_number(size_t number)
+{
+    std::string str = std::to_string(number);
+    int pos = str.length() - 3;
+    while (pos > 0)
+    {
+        str.insert(pos, ",");
+        pos -= 3;
+    }
+    return str;
+}
