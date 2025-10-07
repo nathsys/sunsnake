@@ -4,7 +4,9 @@
 
 #include <array>
 #include <cstdint>
+#ifdef __BMI2__
 #include <immintrin.h>
+#endif
 
 #pragma once
 

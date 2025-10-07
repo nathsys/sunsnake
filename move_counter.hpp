@@ -123,7 +123,6 @@ namespace move_counting
 
             make_move::unmake_ep_capture<player>(board, from, ep_target);
         }
-
         return;
     }
 
@@ -232,12 +231,10 @@ namespace move_counting
         size_t nodes = 0;
         if (depth == 1 && !is_root)
             return get_moves<player>(board, state, move_stack).size();
-        if (!depth)
-            return 1;
         for (Move &move : get_moves<player>(board, state, move_stack))
         {
             make_move::make_move<player>(board, state, move, data_stack);
-            size_t local = perft<opponent<player>()>(board, state, depth - 1, move_stack, data_stack);
+            size_t local = depth ? perft<opponent<player>()>(board, state, depth - 1, move_stack, data_stack) : 1;
             make_move::unmake_move<player>(board, state, move, data_stack);
 
             if constexpr (is_root)
@@ -245,8 +242,7 @@ namespace move_counting
 
             nodes += local;
         }
-        if constexpr (is_root)
-            std::cout << "\nNodes searched: " << format_number(nodes) << '\n';
+        
         return nodes;
     }
 
@@ -269,6 +265,8 @@ namespace move_counting
 
         double seconds = duration.count() / 1000000.0;
         double nps = seconds > 0 ? nodes / seconds : 0;
+        
+        std::cout << "\nNodes searched: " << format_number(nodes) << '\n';
 
         std::cout << "Time: " << std::fixed << std::setprecision(3) << seconds << " seconds\n";
         std::cout << "Nodes per second: " << format_number(static_cast<size_t>(nps)) << " NPS\n";
