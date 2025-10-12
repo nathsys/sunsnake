@@ -118,7 +118,8 @@ namespace move_counting
         {
             const BitBoard from = pop(adj_pawns);
             make_move::ep_capture<player>(board, from, ep_target);
-            if (!board.is_attacked_by_slider<player>(lbit_from_right(board.get_piece_board<player, PieceType::king>())))
+            board.print_board();
+            if (!board.is_attacked_by_slider<player>(board.get_piece_board<player, PieceType::king>()))
                 moves.push(MoveEncoding::ep_capture(from, ep_target));
 
             make_move::unmake_ep_capture<player>(board, from, ep_target);
@@ -181,7 +182,7 @@ namespace move_counting
         normal_pawns ^= pinned_pawns;
         // Get all the moves for pinned and normal pawns.
         count_pawn_moves<player>(board, normal_pawns, move_mask, moves);
-        count_pawn_moves<player>(board, pinned_pawns, move_mask ^ not_pinned, moves);
+        count_pawn_moves<player>(board, pinned_pawns, move_mask & ~not_pinned, moves);
     }
 
     template <Player player>
