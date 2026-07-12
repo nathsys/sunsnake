@@ -82,6 +82,25 @@ struct Board
 		return (get_pawn_attacks<player>(pos) & get_piece_board<opponent<player>(), PieceType::pawn>()) || (get_knight_move(square) & get_piece_board<opponent<player>(), PieceType::knight>()) || (get_rook_move(square, occ_board) & (get_piece_board<opponent<player>(), PieceType::rook>() | get_piece_board<opponent<player>(), PieceType::queen>())) || (get_bishop_move(square, occ_board) & (get_piece_board<opponent<player>(), PieceType::bishop>() | get_piece_board<opponent<player>(), PieceType::queen>())) || (get_king_move(square) & get_piece_board<opponent<player>(), PieceType::king>());
 	}
 
+	template <Player player, bool kingside>
+	inline bool castle_sqs_attacked() const
+	{
+		if constexpr (kingside)
+		{
+			if constexpr (player == Player::white)
+				return is_attacked<player>(c_castle_k_squares_w1) || is_attacked<player>(c_castle_k_squares_w2);
+			else
+				return is_attacked<player>(c_castle_k_squares_b1) || is_attacked<player>(c_castle_k_squares_b2);
+		}
+		else
+		{
+			if constexpr (player == Player::white)
+				return is_attacked<player>(c_castle_q_squares_w1) || is_attacked<player>(c_castle_q_squares_w2);
+			else
+				return is_attacked<player>(c_castle_q_squares_b1) || is_attacked<player>(c_castle_q_squares_b2);
+		}
+	}
+
 	template <Player player, bool debug = false>
 	inline bool is_attacked_by_slider(BitBoard pos) const
 	{

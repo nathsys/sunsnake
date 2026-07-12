@@ -14,7 +14,7 @@ namespace make_move
 
 	// Move a piece.
 	template <Player player>
-	inline void move_piece(Board &b, const Square from, const Square to)
+	inline PieceType move_piece(Board &b, const Square from, const Square to)
 	{
 		// Find the piece type.
 		const BitBoard from_mask = square_to_mask(from);
@@ -37,10 +37,34 @@ namespace make_move
 		}
 		b.pieces[to] = piece;
 		b.pieces[from] = PieceType::none;
+		return piece;
+	}
+
+
+	// Move a piece.
+	template <Player player>
+	inline void move_piece_and_check_castling(Board &b, const Square from, const Square to, GameState &state)
+	{
+		PieceType piece = move_piece<player>(b, from, to);
+
+		// If the piece is a rook, we need to check if we need to remove castling rights.
+		if (piece == PieceType::rook)
+		{
+			if (from == (player == Player::white ? notation_to_square("h1") : notation_to_square("h8")))
+			{
+				state.rm_cr<player, true>();
+			}
+		}
+
+		// If piece is a king, we need to remove castling rights for that player.
+		if (piece == PieceType::king)
+		{
+			state.rm_cr<player>();
+		}
 	}
 
 	template <Player player>
-	inline PieceType capture(Board &b, const Square from, const Square to)
+	inline PieceType capture(Board &b, const Square from, const Square to, GameState &state)
 	{
 		const PieceType moving = b.get_piece_type(from);
 		const PieceType cap = b.get_piece_type(to);
@@ -51,6 +75,15 @@ namespace make_move
 		b.get_player_occ_ref<opponent<player>()>() ^= to_mask;
 		// Move the piece.
 		move_piece<player>(b, from, to);
+
+		// If we capture a rook, we need to check if we need to remove castling rights.
+		if (cap == PieceType::rook) {
+			if (to == (player == Player::white ? notation_to_square("h8") : notation_to_square("h1"))) {
+				state.rm_cr<opponent<player>(), true>();
+			} else if (to == (player == Player::white ? notation_to_square("a8") : notation_to_square("a1"))) {
+				state.rm_cr<opponent<player>(), false>();
+			}
+		}
 
 		return cap;
 	}
@@ -246,19 +279,21 @@ namespace make_move
 		switch (MoveEncoding::get_move_flag(move))
 		{
 		case MoveEncoding::quiet_flag:
-			move_piece<player>(board, from, to);
+			move_piece_and_check_castling<player>(board, from, to, state);
 			break;
 		case MoveEncoding::double_pawn_push_flag:
 			pawn_double<player>(board, from, to, state);
 			break;
 		case MoveEncoding::kingside_castle_flag:
 			castle<player, true>(board);
+			state.rm_cr<player>();
 			break;
 		case MoveEncoding::queenside_castle_flag:
 			castle<player, false>(board);
+			state.rm_cr<player>();
 			break;
 		case MoveEncoding::capture_flag:
-			flag_stack.push(static_cast<u_int8_t>(capture<player>(board, from, to)));
+			flag_stack.push(static_cast<u_int8_t>(capture<player>(board, from, to, state)));
 			break;
 		case MoveEncoding::ep_capture_flag:
 			ep_capture<player>(board, from, to);

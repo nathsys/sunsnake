@@ -27,6 +27,22 @@ struct GameState
             data &= 0b11110111; // Clear bit 7.
     }
 
+    constexpr bool can_castle_k(Player player) const
+    {
+        if (player == Player::white)
+            return data & 0b00000010;
+        else
+            return data & 0b00000100;
+    }
+
+    constexpr bool can_castle_q(Player player) const
+    {
+        if (player == Player::white)
+            return data & 0b00000001;
+        else
+            return data & 0b00001000;
+    }
+
     constexpr Player player() const
     {
         return current_player;
