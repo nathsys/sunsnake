@@ -53,6 +53,9 @@ namespace make_move
 			if (from == (player == Player::white ? notation_to_square("h1") : notation_to_square("h8")))
 			{
 				state.rm_cr<player, true>();
+			} else if (from == (player == Player::white ? notation_to_square("a1") : notation_to_square("a8")))
+			{
+				state.rm_cr<player, false>();
 			}
 		}
 

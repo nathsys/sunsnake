@@ -58,6 +58,7 @@ namespace MoveEncoding
         return double_pawn_push_flag | flagless_move(from, to);
     }
 
+    // For castling moves, squares are noted purely for easy notation, performance diff is neglegable.
     static Move kingside_castle(Square from, Square to)
     {
         return kingside_castle_flag | flagless_move(from, to);
@@ -66,6 +67,12 @@ namespace MoveEncoding
     static Move queenside_castle(Square from, Square to)
     {
         return queenside_castle_flag | flagless_move(from, to);
+    }
+
+    template <bool kingside>
+    static Move castle(Square from, Square to)
+    {
+        return kingside ? kingside_castle(from, to) : queenside_castle(from, to);
     }
 
     static Move capture(Square from, Square to)

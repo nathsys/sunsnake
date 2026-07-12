@@ -186,6 +186,13 @@ def compare_perft_results(moves, depth):
         print(f"After moves: {' '.join(moves)}")
     print("-" * 60)
 
+    # Always print the current position as visible to Stockfish.
+    board = get_stockfish_board(moves)
+    if board is not None:
+        print("Current position:")
+        print(render_board(board))
+        print("-" * 60)
+
     # Run both engines
     print("Running Stockfish...")
     stockfish_results, stockfish_total = run_stockfish_perft(moves, depth)

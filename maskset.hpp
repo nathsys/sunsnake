@@ -31,7 +31,7 @@ struct MaskSet
 		check_mask = 0;
 		checkers = 0;
 
-		const Square king_square = lbit_from_right(b.get_piece_board<player, PieceType::king>());
+		const Square king_square = lbr(b.get_piece_board<player, PieceType::king>());
 
 		const BitBoard opp_board = b.get_player_occ<opponent<player>()>();
 		const BitBoard own_board = b.get_player_occ<player>();

@@ -12,9 +12,9 @@ inline bool get_bit_64(uint64_t num, uint8_t pos) { return (num & (1ULL << (pos)
 
 inline constexpr uint64_t square_to_mask(Square s) { return 1ULL << s; }
 
-inline uint8_t lbit(uint64_t n) { return __builtin_clzll(n); }
+inline uint8_t lb(uint64_t n) { return __builtin_clzll(n); }
 
-inline uint8_t lbit_from_right(uint64_t n) { return __builtin_ctzll(n); }
+inline uint8_t lbr(uint64_t n) { return __builtin_ctzll(n); }
 
 inline BitBoard pop_extract(BitBoard &b)
 {
@@ -25,7 +25,7 @@ inline BitBoard pop_extract(BitBoard &b)
 
 inline Square pop(uint64_t &b)
 {
-    Square idx = lbit_from_right(b);
+    Square idx = lbr(b);
     b &= b - 1;
     return idx;
 }
@@ -48,8 +48,12 @@ static std::string print_binary(uint64_t n)
     return result;
 }
 
-static void print_bitboard(uint64_t bitboard)
+static void print_bitboard(uint64_t bitboard, const std::string &label = "")
 {
+    if (!label.empty())
+    {
+        std::cout << label << ":\n";
+    }
     std::cout << "   a b c d e f g h\n";
     std::cout << " +-----------------+\n";
     for (int row = 7; row >= 0; row--)
@@ -112,4 +116,13 @@ inline std::string format_number(size_t number)
         pos -= 3;
     }
     return str;
+}
+
+template <Player player, bool kingside>
+constexpr inline BitBoard get_corner() {
+    if constexpr (player == Player::white) {
+        return kingside ? c_bottom_right_corner : c_bottom_left_corner;
+    } else {
+        return kingside ? c_top_right_corner : c_top_left_corner;
+    }
 }

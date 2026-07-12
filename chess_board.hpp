@@ -78,7 +78,7 @@ struct Board
 	template <Player player>
 	inline bool is_attacked(BitBoard pos) const
 	{
-		Square square = lbit_from_right(pos);
+		Square square = lbr(pos);
 		return (get_pawn_attacks<player>(pos) & get_piece_board<opponent<player>(), PieceType::pawn>()) || (get_knight_move(square) & get_piece_board<opponent<player>(), PieceType::knight>()) || (get_rook_move(square, occ_board) & (get_piece_board<opponent<player>(), PieceType::rook>() | get_piece_board<opponent<player>(), PieceType::queen>())) || (get_bishop_move(square, occ_board) & (get_piece_board<opponent<player>(), PieceType::bishop>() | get_piece_board<opponent<player>(), PieceType::queen>())) || (get_king_move(square) & get_piece_board<opponent<player>(), PieceType::king>());
 	}
 
@@ -104,7 +104,7 @@ struct Board
 	template <Player player, bool debug = false>
 	inline bool is_attacked_by_slider(BitBoard pos) const
 	{
-		const Square square = lbit_from_right(pos);
+		const Square square = lbr(pos);
 		const BitBoard rook_attackers = get_rook_move(square, occ_board) & get_piece_board<opponent<player>(), PieceType::rook>();
 		const BitBoard queen_rook_attackers = get_rook_move(square, occ_board) & get_piece_board<opponent<player>(), PieceType::queen>();
 		const BitBoard bishop_attackers = get_bishop_move(square, occ_board) & get_piece_board<opponent<player>(), PieceType::bishop>();
@@ -115,7 +115,7 @@ struct Board
 			std::cout << "Checking if square " << (int)square << " is attacked by slider of player " << (player == Player::white ? "white" : "black") << "\n";
 			if (rook_attackers)
 			{
-				Square attacker_sq = lbit_from_right(rook_attackers);
+				Square attacker_sq = lbr(rook_attackers);
 				std::cout << "King attacked by rook at " << (int)attacker_sq << "\n";
 				print_bitboard(rook_attackers);
 				std::cout << "Rook move board for attacker:" << std::endl;
@@ -123,7 +123,7 @@ struct Board
 			}
 			if (queen_rook_attackers)
 			{
-				Square attacker_sq = lbit_from_right(queen_rook_attackers);
+				Square attacker_sq = lbr(queen_rook_attackers);
 				std::cout << "King attacked by queen (rook direction) at " << (int)attacker_sq << "\n";
 				print_bitboard(queen_rook_attackers);
 				std::cout << "Queen (rook direction) move board for attacker:" << std::endl;
@@ -131,7 +131,7 @@ struct Board
 			}
 			if (bishop_attackers)
 			{
-				Square attacker_sq = lbit_from_right(bishop_attackers);
+				Square attacker_sq = lbr(bishop_attackers);
 				std::cout << "King attacked by bishop at " << (int)attacker_sq << "\n";
 				print_bitboard(bishop_attackers);
 				std::cout << "Bishop move board for attacker:" << std::endl;
@@ -139,7 +139,7 @@ struct Board
 			}
 			if (queen_bishop_attackers)
 			{
-				Square attacker_sq = lbit_from_right(queen_bishop_attackers);
+				Square attacker_sq = lbr(queen_bishop_attackers);
 				std::cout << "King attacked by queen (bishop direction) at " << (int)attacker_sq << "\n";
 				print_bitboard(queen_bishop_attackers);
 				std::cout << "Queen (bishop direction) move board for attacker:" << std::endl;
@@ -176,7 +176,7 @@ struct Board
 
 	inline PieceType get_piece_type(BitBoard mask) const
 	{
-		return pieces[lbit_from_right(mask)];
+		return pieces[lbr(mask)];
 	}
 
 	inline PieceType get_piece_type(Square mask) const

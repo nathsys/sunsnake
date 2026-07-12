@@ -101,32 +101,30 @@ namespace move_counting
     template <Player player, bool kingside>
     inline void count_castling_moves(const Board &board, const MaskSet &mask, const GameState &state, MoveStack &moves)
     {
-        // Can castle flag is true if: target rook is in correct corner and untouched (original one), 
-        // king is not moved. If king is in check, this function is not called.
-        if constexpr (kingside)
-        {
-            const bool can_castle_k = state.can_castle_k(player);
-            const BitBoard king_sq = board.get_piece_board<player, PieceType::king>();
-            const Square king_square = lbit_from_right(king_sq);
-            const BitBoard rook_sq = board.get_piece_board<player, PieceType::rook>() & (player == Player::white ? c_bottom_right_corner : c_top_right_corner);
-            const Square rook_square = lbit_from_right(rook_sq);
-            const BitBoard king_path = Lookup::between_squares[king_square][rook_square];
-            if ((king_path & board.occ_board) != 0) return;
-            if (!board.castle_sqs_attacked<player, true>())
-                moves.push(MoveEncoding::kingside_castle(king_square, rook_square-1));
-            
+        if constexpr (kingside) {
+            if (!state.can_castle_k(player))
+                return;
+        } else if constexpr (!kingside) {
+            if (!state.can_castle_q(player))
+                return;
         }
-        else if constexpr (!kingside)
+
+        const Square king_square = lbr(board.get_piece_board<player, PieceType::king>());
+        const BitBoard rook_mask = board.get_piece_board<player, PieceType::rook>() & get_corner<player, kingside>();
+        if(!rook_mask)
+            return;
+        const Square rook_square = lbr(rook_mask);
+        const BitBoard king_path = Lookup::between_squares[king_square][rook_square] & ~rook_mask;
+
+        if (king_path & board.occ_board)
+            return;
+        if (!board.castle_sqs_attacked<player, kingside>())
         {
-            const bool can_castle_q = state.can_castle_q(player);
-            const BitBoard king_sq = board.get_piece_board<player, PieceType::king>();
-            const Square king_square = lbit_from_right(king_sq);
-            const BitBoard rook_sq = board.get_piece_board<player, PieceType::rook>() & (player == Player::white ? c_bottom_left_corner : c_top_left_corner);
-            const Square rook_square = lbit_from_right(rook_sq);
-            const BitBoard king_path = Lookup::between_squares[king_square][rook_square];
-            if ((king_path & board.occ_board) != 0) return;
-            if (!board.castle_sqs_attacked<player, false>())
-                moves.push(MoveEncoding::queenside_castle(king_square, rook_square+2));
+            // print_bitboard(king_path, "King path for castling");
+            // print_bitboard(board.occ_board, "Occupancy board");
+            // print_bitboard(rook_mask, "Rook mask");
+            // board.print_board();
+            moves.push(MoveEncoding::castle<kingside>(king_square, rook_square - 1));
         }
         return;
     }
@@ -169,28 +167,28 @@ namespace move_counting
         while (pawns)
         {
             const BitBoard from = pop_extract(pawns);
-            const Square from_sq = lbit_from_right(from);
+            const Square from_sq = lbr(from);
             const BitBoard forward = get_pawn_forward<player>(from) & move_mask;
             const BitBoard left_attack = get_pawn_attack<player, true>(from) & enemy_pieces;
             const BitBoard right_attack = get_pawn_attack<player, false>(from) & enemy_pieces;
             if (forward)
-                moves.push(MoveEncoding::quiet_move(from_sq, lbit_from_right(forward)));
+                moves.push(MoveEncoding::quiet_move(from_sq, lbr(forward)));
             if (left_attack)
-                moves.push(MoveEncoding::capture(from_sq, lbit_from_right(left_attack)));
+                moves.push(MoveEncoding::capture(from_sq, lbr(left_attack)));
             if (right_attack)
-                moves.push(MoveEncoding::capture(from_sq, lbit_from_right(right_attack)));
+                moves.push(MoveEncoding::capture(from_sq, lbr(right_attack)));
         }
 
         // Count all the double moves.
         while (pawns_on_start)
         {
             const BitBoard from = pop_extract(pawns_on_start);
-            const Square from_sq = lbit_from_right(from);
+            const Square from_sq = lbr(from);
             BitBoard attacks = get_pawn_double<player>(from, board.occ_board) & move_mask;
             while (attacks)
             {
                 const BitBoard to = pop_extract(attacks);
-                moves.push(MoveEncoding::double_pawn_push(from_sq, lbit_from_right(to)));
+                moves.push(MoveEncoding::double_pawn_push(from_sq, lbr(to)));
             }
         }
     }
@@ -213,7 +211,7 @@ namespace move_counting
     template <Player player>
     inline void get_king_moves(Board &board, MaskSet &mask, BitBoard piece_board, MoveStack &moves)
     {
-        Square from_sq = lbit_from_right(piece_board);
+        Square from_sq = lbr(piece_board);
         BitBoard attacks = get_king_move(from_sq) & mask.legal_squares;
         moves_for_piece<PieceType::king, player, false>(board, attacks & ~board.occ_board, from_sq, moves);
         moves_for_piece<PieceType::king, player, true>(board, attacks & board.get_player_occ<opponent<player>()>(), from_sq, moves);
@@ -233,10 +231,12 @@ namespace move_counting
         // If no check, we can count all the moves, including castling.
         // If there is one checker, we can only block the check or capture the piece.
         // If there are two or more checkers, we can only move the king.
-        if (!mask.checkers) {
+        if (!mask.checkers)
+        {
             count_castling_moves<player, true>(board, mask, state, move_stack);
             count_castling_moves<player, false>(board, mask, state, move_stack);
-        } else if (mask.checkers == 1)
+        }
+        else if (mask.checkers == 1)
         {
             mask.legal_squares &= mask.check_mask;
         }
@@ -262,7 +262,7 @@ namespace move_counting
         for (Move &move : get_moves<player>(board, state, move_stack))
         {
             make_move::make_move<player>(board, state, move, data_stack);
-            size_t local = depth ? perft<opponent<player>()>(board, state, depth - 1, move_stack, data_stack) : 1;
+            size_t local = depth - 1 ? perft<opponent<player>()>(board, state, depth - 1, move_stack, data_stack) : 1;
             make_move::unmake_move<player>(board, state, move, data_stack);
 
             if constexpr (is_root)
@@ -270,7 +270,7 @@ namespace move_counting
 
             nodes += local;
         }
-        
+
         return nodes;
     }
 
@@ -293,7 +293,7 @@ namespace move_counting
 
         double seconds = duration.count() / 1000000.0;
         double nps = seconds > 0 ? nodes / seconds : 0;
-        
+
         std::cout << "\nNodes searched: " << format_number(nodes) << '\n';
 
         std::cout << "Time: " << std::fixed << std::setprecision(3) << seconds << " seconds\n";
