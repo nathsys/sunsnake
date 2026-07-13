@@ -48,6 +48,9 @@ endif()
 
 if(SUNSNAKE_BUILD_TESTS)
     target_compile_definitions(sunsnake PRIVATE run_tests)
+    # CMake's default Release flags define NDEBUG, which would silently
+    # strip every assert() the self-test suite relies on to fail.
+    target_compile_options(sunsnake PRIVATE -UNDEBUG)
 endif()
 
 if(SUNSNAKE_GENERATE_MAGICS)

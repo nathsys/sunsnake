@@ -6,6 +6,7 @@
 #include "chess_board.hpp"
 #include "util.hpp"
 #include "move.hpp"
+#include "zobrist.hpp"
 
 #ifdef move_gen
 
@@ -284,57 +285,100 @@ namespace make_move
 		Square from = MoveEncoding::get_from_square(move);
 		Square to = MoveEncoding::get_to_square(move);
 		flag_stack.push(state.data); // Save the game state.
+		const uint8_t old_data = state.data;
 		// Clear en passant.
 		state.data &= 0b00001111;
 
 		switch (MoveEncoding::get_move_flag(move))
 		{
 		case MoveEncoding::quiet_flag:
+		{
+			const PieceType moved = board.get_piece_type(from);
+			state.hash ^= Zobrist::piece_key(player, moved, from) ^ Zobrist::piece_key(player, moved, to);
 			move_piece_and_check_castling<player>(board, from, to, state);
 			break;
+		}
 		case MoveEncoding::double_pawn_push_flag:
+			state.hash ^= Zobrist::piece_key<player, PieceType::pawn>(from) ^ Zobrist::piece_key<player, PieceType::pawn>(to);
 			pawn_double<player>(board, from, to, state);
 			break;
 		case MoveEncoding::kingside_castle_flag:
+			state.hash ^= Zobrist::castle_key<player, true>();
 			castle<player, true>(board);
 			state.rm_cr<player>();
 			break;
 		case MoveEncoding::queenside_castle_flag:
+			state.hash ^= Zobrist::castle_key<player, false>();
 			castle<player, false>(board);
 			state.rm_cr<player>();
 			break;
 		case MoveEncoding::capture_flag:
-			flag_stack.push(static_cast<u_int8_t>(capture<player>(board, from, to, state)));
+		{
+			const PieceType moved = board.get_piece_type(from);
+			state.hash ^= Zobrist::piece_key(player, moved, from) ^ Zobrist::piece_key(player, moved, to);
+			const PieceType captured = capture<player>(board, from, to, state);
+			state.hash ^= Zobrist::piece_key(opponent<player>(), captured, to);
+			flag_stack.push(static_cast<u_int8_t>(captured));
 			break;
+		}
 		case MoveEncoding::ep_capture_flag:
+		{
+			const Square cap_sq = player == Player::white ? to - 8 : to + 8;
+			state.hash ^= Zobrist::piece_key<player, PieceType::pawn>(from) ^ Zobrist::piece_key<player, PieceType::pawn>(to) ^ Zobrist::piece_key<opponent<player>(), PieceType::pawn>(cap_sq);
 			ep_capture<player>(board, from, to);
 			break;
+		}
 		case MoveEncoding::knight_promotion_flag:
+			state.hash ^= Zobrist::piece_key<player, PieceType::pawn>(from) ^ Zobrist::piece_key<player, PieceType::knight>(to);
 			promotion<player, PieceType::knight>(board, from, to);
 			break;
 		case MoveEncoding::bishop_promotion_flag:
+			state.hash ^= Zobrist::piece_key<player, PieceType::pawn>(from) ^ Zobrist::piece_key<player, PieceType::bishop>(to);
 			promotion<player, PieceType::bishop>(board, from, to);
 			break;
 		case MoveEncoding::rook_promotion_flag:
+			state.hash ^= Zobrist::piece_key<player, PieceType::pawn>(from) ^ Zobrist::piece_key<player, PieceType::rook>(to);
 			promotion<player, PieceType::rook>(board, from, to);
 			break;
 		case MoveEncoding::queen_promotion_flag:
+			state.hash ^= Zobrist::piece_key<player, PieceType::pawn>(from) ^ Zobrist::piece_key<player, PieceType::queen>(to);
 			promotion<player, PieceType::queen>(board, from, to);
 			break;
 		case MoveEncoding::knight_promotion_capture_flag:
-			flag_stack.push(static_cast<uint8_t>(promotion_capture<player, PieceType::knight>(board, from, to, state)));
-			break;
-		case MoveEncoding::bishop_promotion_capture_flag:
-			flag_stack.push(static_cast<uint8_t>(promotion_capture<player, PieceType::bishop>(board, from, to, state)));
-			break;
-		case MoveEncoding::rook_promotion_capture_flag:
-			flag_stack.push(static_cast<uint8_t>(promotion_capture<player, PieceType::rook>(board, from, to, state)));
-			break;
-		case MoveEncoding::queen_promotion_capture_flag:
-			flag_stack.push(static_cast<uint8_t>(promotion_capture<player, PieceType::queen>(board, from, to, state)));
+		{
+			state.hash ^= Zobrist::piece_key<player, PieceType::pawn>(from) ^ Zobrist::piece_key<player, PieceType::knight>(to);
+			const PieceType captured = promotion_capture<player, PieceType::knight>(board, from, to, state);
+			state.hash ^= Zobrist::piece_key(opponent<player>(), captured, to);
+			flag_stack.push(static_cast<uint8_t>(captured));
 			break;
 		}
+		case MoveEncoding::bishop_promotion_capture_flag:
+		{
+			state.hash ^= Zobrist::piece_key<player, PieceType::pawn>(from) ^ Zobrist::piece_key<player, PieceType::bishop>(to);
+			const PieceType captured = promotion_capture<player, PieceType::bishop>(board, from, to, state);
+			state.hash ^= Zobrist::piece_key(opponent<player>(), captured, to);
+			flag_stack.push(static_cast<uint8_t>(captured));
+			break;
+		}
+		case MoveEncoding::rook_promotion_capture_flag:
+		{
+			state.hash ^= Zobrist::piece_key<player, PieceType::pawn>(from) ^ Zobrist::piece_key<player, PieceType::rook>(to);
+			const PieceType captured = promotion_capture<player, PieceType::rook>(board, from, to, state);
+			state.hash ^= Zobrist::piece_key(opponent<player>(), captured, to);
+			flag_stack.push(static_cast<uint8_t>(captured));
+			break;
+		}
+		case MoveEncoding::queen_promotion_capture_flag:
+		{
+			state.hash ^= Zobrist::piece_key<player, PieceType::pawn>(from) ^ Zobrist::piece_key<player, PieceType::queen>(to);
+			const PieceType captured = promotion_capture<player, PieceType::queen>(board, from, to, state);
+			state.hash ^= Zobrist::piece_key(opponent<player>(), captured, to);
+			flag_stack.push(static_cast<uint8_t>(captured));
+			break;
+		}
+		}
 
+		state.hash ^= Zobrist::state_key(old_data) ^ Zobrist::state_key(state.data) ^ Zobrist::keys.side_to_move;
 		state.switch_player();
 	}
 
@@ -343,54 +387,92 @@ namespace make_move
 	{
 		Square from = MoveEncoding::get_from_square(move);
 		Square to = MoveEncoding::get_to_square(move);
+		const uint8_t data_before_restore = state.data;
 
 		switch (MoveEncoding::get_move_flag(move))
 		{
 		case MoveEncoding::quiet_flag:
+		{
+			const PieceType moved = board.get_piece_type(to);
+			state.hash ^= Zobrist::piece_key(player, moved, from) ^ Zobrist::piece_key(player, moved, to);
 			move_piece<player>(board, to, from);
 			break;
+		}
 		case MoveEncoding::double_pawn_push_flag:
+			state.hash ^= Zobrist::piece_key<player, PieceType::pawn>(from) ^ Zobrist::piece_key<player, PieceType::pawn>(to);
 			unmake_pawn_double<player>(board, from, to);
 			break;
 		case MoveEncoding::kingside_castle_flag:
+			state.hash ^= Zobrist::castle_key<player, true>();
 			unmake_castle<player, true>(board);
 			break;
 		case MoveEncoding::queenside_castle_flag:
+			state.hash ^= Zobrist::castle_key<player, false>();
 			unmake_castle<player, false>(board);
 			break;
 		case MoveEncoding::capture_flag:
-			unmake_capture_move<player>(board, from, to, static_cast<PieceType>(flag_stack.pop()));
+		{
+			const PieceType moved = board.get_piece_type(to);
+			const PieceType captured = static_cast<PieceType>(flag_stack.pop());
+			state.hash ^= Zobrist::piece_key(player, moved, from) ^ Zobrist::piece_key(player, moved, to) ^ Zobrist::piece_key(opponent<player>(), captured, to);
+			unmake_capture_move<player>(board, from, to, captured);
 			break;
+		}
 		case MoveEncoding::ep_capture_flag:
+		{
+			const Square cap_sq = player == Player::white ? to - 8 : to + 8;
+			state.hash ^= Zobrist::piece_key<player, PieceType::pawn>(from) ^ Zobrist::piece_key<player, PieceType::pawn>(to) ^ Zobrist::piece_key<opponent<player>(), PieceType::pawn>(cap_sq);
 			unmake_ep_capture<player>(board, from, to);
 			break;
+		}
 		case MoveEncoding::knight_promotion_flag:
+			state.hash ^= Zobrist::piece_key<player, PieceType::pawn>(from) ^ Zobrist::piece_key<player, PieceType::knight>(to);
 			unmake_promotion<player, PieceType::knight>(board, from, to);
 			break;
 		case MoveEncoding::bishop_promotion_flag:
+			state.hash ^= Zobrist::piece_key<player, PieceType::pawn>(from) ^ Zobrist::piece_key<player, PieceType::bishop>(to);
 			unmake_promotion<player, PieceType::bishop>(board, from, to);
 			break;
 		case MoveEncoding::rook_promotion_flag:
+			state.hash ^= Zobrist::piece_key<player, PieceType::pawn>(from) ^ Zobrist::piece_key<player, PieceType::rook>(to);
 			unmake_promotion<player, PieceType::rook>(board, from, to);
 			break;
 		case MoveEncoding::queen_promotion_flag:
+			state.hash ^= Zobrist::piece_key<player, PieceType::pawn>(from) ^ Zobrist::piece_key<player, PieceType::queen>(to);
 			unmake_promotion<player, PieceType::queen>(board, from, to);
 			break;
 		case MoveEncoding::knight_promotion_capture_flag:
-			unmake_capture_promotion<player, PieceType::knight>(board, from, to, static_cast<PieceType>(flag_stack.pop()));
+		{
+			const PieceType captured = static_cast<PieceType>(flag_stack.pop());
+			state.hash ^= Zobrist::piece_key<player, PieceType::pawn>(from) ^ Zobrist::piece_key<player, PieceType::knight>(to) ^ Zobrist::piece_key(opponent<player>(), captured, to);
+			unmake_capture_promotion<player, PieceType::knight>(board, from, to, captured);
 			break;
+		}
 		case MoveEncoding::bishop_promotion_capture_flag:
-			unmake_capture_promotion<player, PieceType::bishop>(board, from, to, static_cast<PieceType>(flag_stack.pop()));
+		{
+			const PieceType captured = static_cast<PieceType>(flag_stack.pop());
+			state.hash ^= Zobrist::piece_key<player, PieceType::pawn>(from) ^ Zobrist::piece_key<player, PieceType::bishop>(to) ^ Zobrist::piece_key(opponent<player>(), captured, to);
+			unmake_capture_promotion<player, PieceType::bishop>(board, from, to, captured);
 			break;
+		}
 		case MoveEncoding::rook_promotion_capture_flag:
-			unmake_capture_promotion<player, PieceType::rook>(board, from, to, static_cast<PieceType>(flag_stack.pop()));
+		{
+			const PieceType captured = static_cast<PieceType>(flag_stack.pop());
+			state.hash ^= Zobrist::piece_key<player, PieceType::pawn>(from) ^ Zobrist::piece_key<player, PieceType::rook>(to) ^ Zobrist::piece_key(opponent<player>(), captured, to);
+			unmake_capture_promotion<player, PieceType::rook>(board, from, to, captured);
 			break;
+		}
 		case MoveEncoding::queen_promotion_capture_flag:
-			unmake_capture_promotion<player, PieceType::queen>(board, from, to, static_cast<PieceType>(flag_stack.pop()));
+		{
+			const PieceType captured = static_cast<PieceType>(flag_stack.pop());
+			state.hash ^= Zobrist::piece_key<player, PieceType::pawn>(from) ^ Zobrist::piece_key<player, PieceType::queen>(to) ^ Zobrist::piece_key(opponent<player>(), captured, to);
+			unmake_capture_promotion<player, PieceType::queen>(board, from, to, captured);
 			break;
+		}
 		}
 
 		state.data = flag_stack.pop(); // Restore the game state data.
+		state.hash ^= Zobrist::state_key(data_before_restore) ^ Zobrist::state_key(state.data) ^ Zobrist::keys.side_to_move;
 		state.switch_player();
 	}
 

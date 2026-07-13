@@ -1,4 +1,5 @@
 #include "defaults.hpp"
+#include "zobrist.hpp"
 #include <bitset>
 #include <cstdint>
 #include <iostream>
@@ -14,6 +15,7 @@ struct GameState
     // 1 bit each for white kingside, white queenside, black kingside, black queenside castling rights.
     uint data = 00001111;
     Player current_player = Player::white;
+    Hash hash = 0;
 
     constexpr GameState(Player player = Player::white, u_int8_t en_passant = 0,
                         bool w_can_castle_k = true, bool w_can_castle_q = true,
@@ -103,9 +105,11 @@ struct GameState
     }
 };
 
-constexpr GameState get_initial_gamestate()
+inline GameState get_initial_gamestate()
 {
-    return GameState(Player::white, 0, true, true, true, true);
+    GameState state(Player::white, 0, true, true, true, true);
+    state.hash = Zobrist::compute(Board(), state.data, state.player());
+    return state;
 }
 
 } // namespace sunsnake
