@@ -3,6 +3,8 @@
 #include <cstdint>
 #include <iostream>
 
+#pragma once
+
 struct GameState
 {
     // 4 bits for en passant file (0 if none, 1-8 for a-h)

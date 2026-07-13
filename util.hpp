@@ -14,7 +14,12 @@ inline constexpr uint64_t square_to_mask(Square s) { return 1ULL << s; }
 
 inline uint8_t lb(uint64_t n) { return __builtin_clzll(n); }
 
-inline uint8_t lbr(uint64_t n) { return __builtin_ctzll(n); }
+inline uint8_t lbr(uint64_t n) {
+    if (n == 0) { // TODO: remove check.
+        throw std::invalid_argument("lbr called with zero");
+    }    
+    return __builtin_ctzll(n); 
+}
 
 inline BitBoard pop_extract(BitBoard &b)
 {
@@ -83,18 +88,18 @@ inline constexpr Player opponent()
     return (player == Player::white) ? Player::black : Player::white;
 }
 
+// TODO: make this a lookup table.
 inline constexpr uint8_t notation_to_square(const char *notation)
 {
-    int column = notation[0] - 'a';
-    int row = 7 - (notation[1] - '1');
+    int column = 'h' - notation[0];
+    int row = notation[1] - '1';
     return ((row * 8) + column);
 }
 
 template <bool print_debug_info = false>
 inline void print_movecount(Move move, size_t cnt)
 {
-    std::cout << MoveEncoding::make_chess_notation(MoveEncoding::get_from_square(move)) << MoveEncoding::make_chess_notation(MoveEncoding::get_to_square(move))
-              << ": " << std::to_string(cnt) << '\n';
+    std::cout << MoveEncoding::move_to_string(move) << ": " << std::to_string(cnt) << '\n';
 
     if constexpr (print_debug_info)
     {

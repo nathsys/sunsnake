@@ -7,7 +7,7 @@
 #include "util.hpp"
 #include "move.hpp"
 
-#ifdef count_moves
+#ifdef move_gen
 
 namespace make_move
 {
@@ -19,21 +19,18 @@ namespace make_move
 		// Find the piece type.
 		const BitBoard from_mask = square_to_mask(from);
 		const BitBoard to_mask = square_to_mask(to);
+		const BitBoard move_mask = from_mask | to_mask;
 		const PieceType piece = b.get_piece_type(from_mask);
-		*b.get_board_pointer<player>(piece) ^= from_mask;
-		b.occ_board ^= from_mask;
-		*b.get_board_pointer<player>(piece) |= to_mask;
-		b.occ_board |= to_mask;
+		*b.get_board_pointer<player>(piece) ^= move_mask;
+		b.occ_board ^= move_mask;
 
 		if constexpr (player == Player::white)
 		{
-			b.w_board ^= from_mask;
-			b.w_board |= to_mask;
+			b.w_board ^= move_mask;
 		}
 		else
 		{
-			b.b_board ^= from_mask;
-			b.b_board |= to_mask;
+			b.b_board ^= move_mask;
 		}
 		b.pieces[to] = piece;
 		b.pieces[from] = PieceType::none;
@@ -69,15 +66,15 @@ namespace make_move
 	template <Player player>
 	inline PieceType capture(Board &b, const Square from, const Square to, GameState &state)
 	{
-		const PieceType moving = b.get_piece_type(from);
 		const PieceType cap = b.get_piece_type(to);
 		const BitBoard to_mask = square_to_mask(to);
 		// Remove the captured piece from the board.
 		*b.get_board_pointer<opponent<player>()>(cap) ^= to_mask;
 		b.occ_board ^= to_mask;
 		b.get_player_occ_ref<opponent<player>()>() ^= to_mask;
-		// Move the piece.
-		move_piece<player>(b, from, to);
+		// Move the piece. Also revokes the capturing player's own castling
+		// rights if the capturing piece is a king or a rook leaving its home square.
+		move_piece_and_check_castling<player>(b, from, to, state);
 
 		// If we capture a rook, we need to check if we need to remove castling rights.
 		if (cap == PieceType::rook) {
@@ -228,14 +225,13 @@ namespace make_move
 	inline void unmake_promotion(Board &b, const Square from, const Square to)
 	{
 		move_piece<player>(b, to, from);
-		// Change the piece type to the promoted piece.
-		b.get_piece_board_ref<player, PieceType::pawn>() ^= square_to_mask(to);
-		b.get_piece_board_ref<player, promotion_type>() |= square_to_mask(from);
+		b.get_piece_board_ref<player, promotion_type>() ^= square_to_mask(from);
+		b.get_piece_board_ref<player, PieceType::pawn>() |= square_to_mask(from);
 		b.pieces[from] = PieceType::pawn;
 	}
 
 	template <Player player, PieceType promotion_type>
-	inline PieceType promotion_capture(Board &b, const Square from, const Square to)
+	inline PieceType promotion_capture(Board &b, const Square from, const Square to, GameState &state)
 	{
 		// Remove the captured piece from the board.
 		const PieceType cap = b.get_piece_type(to);
@@ -243,6 +239,15 @@ namespace make_move
 		*b.get_board_pointer<opponent<player>()>(cap) ^= to_mask;
 		b.occ_board ^= to_mask;
 		b.get_player_occ_ref<opponent<player>()>() ^= to_mask;
+
+		// If we capture a rook, we need to check if we need to remove castling rights.
+		if (cap == PieceType::rook) {
+			if (to == (player == Player::white ? notation_to_square("h8") : notation_to_square("h1"))) {
+				state.rm_cr<opponent<player>(), true>();
+			} else if (to == (player == Player::white ? notation_to_square("a8") : notation_to_square("a1"))) {
+				state.rm_cr<opponent<player>(), false>();
+			}
+		}
 
 		move_piece<player>(b, from, to);
 		// Change the piece type to the promoted piece.
@@ -314,16 +319,16 @@ namespace make_move
 			promotion<player, PieceType::queen>(board, from, to);
 			break;
 		case MoveEncoding::knight_promotion_capture_flag:
-			flag_stack.push(static_cast<uint8_t>(promotion_capture<player, PieceType::knight>(board, from, to)));
+			flag_stack.push(static_cast<uint8_t>(promotion_capture<player, PieceType::knight>(board, from, to, state)));
 			break;
 		case MoveEncoding::bishop_promotion_capture_flag:
-			flag_stack.push(static_cast<uint8_t>(promotion_capture<player, PieceType::bishop>(board, from, to)));
+			flag_stack.push(static_cast<uint8_t>(promotion_capture<player, PieceType::bishop>(board, from, to, state)));
 			break;
 		case MoveEncoding::rook_promotion_capture_flag:
-			flag_stack.push(static_cast<uint8_t>(promotion_capture<player, PieceType::rook>(board, from, to)));
+			flag_stack.push(static_cast<uint8_t>(promotion_capture<player, PieceType::rook>(board, from, to, state)));
 			break;
 		case MoveEncoding::queen_promotion_capture_flag:
-			flag_stack.push(static_cast<uint8_t>(promotion_capture<player, PieceType::queen>(board, from, to)));
+			flag_stack.push(static_cast<uint8_t>(promotion_capture<player, PieceType::queen>(board, from, to, state)));
 			break;
 		}
 
@@ -387,4 +392,4 @@ namespace make_move
 	}
 } // namespace make_move
 
-#endif // count_moves
+#endif // move_gen

@@ -5,6 +5,7 @@
 #include "dynamic_tables.hpp"
 #include "move_logic.hpp"
 #include "testing.hpp"
+#include "move_generator.hpp"
 #include "move_counter.hpp"
 #include "util.hpp"
 
@@ -12,7 +13,7 @@ static void try_make_move(std::string move_str, Board &board, GameState &state)
 {
     MoveStack move_stack;
     FlagStack flag_stack;
-    MoveList moves = state.player() == Player::white ? move_counting::get_moves<Player::white>(board, state, move_stack) : move_counting::get_moves<Player::black>(board, state, move_stack);
+    MoveList moves = state.player() == Player::white ? move_generation::generate_moves<Player::white>(board, state, move_stack) : move_generation::generate_moves<Player::black>(board, state, move_stack);
     for (Move &move : moves)
     {
         if (MoveEncoding::move_to_string(move) == move_str)

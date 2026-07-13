@@ -69,9 +69,11 @@ namespace MoveEncoding
         return queenside_castle_flag | flagless_move(from, to);
     }
 
-    template <bool kingside>
-    static Move castle(Square from, Square to)
+    template <Player player, bool kingside>
+    static Move castle()
     {
+        constexpr Square from = player == Player::white ? 3 : 59;
+        constexpr Square to = from + (kingside ? -2 : 2);
         return kingside ? kingside_castle(from, to) : queenside_castle(from, to);
     }
 

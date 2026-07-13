@@ -4,8 +4,8 @@
 #pragma once
 
 #define run_tests 1
-#define count_moves 1
-#define count_moves_print 1
+#define move_gen 1
+#define move_gen_print 1
 
 // Define aliases for data structures.
 typedef uint64_t BitBoard;
@@ -14,22 +14,22 @@ typedef uint_fast8_t Square;
 // Define default chess board configuration.
 // Bit on 1 means a piece is initialized on that particular square.
 constexpr BitBoard c_empty_board = 0b0;
-constexpr uint64_t c_init_rook_squares = 0b1000000100000000000000000000000000000000000000000000000010000001ULL;
-constexpr uint64_t c_init_knight_squares = 0b0100001000000000000000000000000000000000000000000000000001000010ULL;
-constexpr uint64_t c_init_bishop_squares = 0b0010010000000000000000000000000000000000000000000000000000100100ULL;
-constexpr uint64_t c_init_queen_squares = 0b0001000000000000000000000000000000000000000000000000000000010000ULL;
-constexpr uint64_t c_init_king_squares = 0b0000100000000000000000000000000000000000000000000000000000001000ULL;
-constexpr uint64_t c_init_pawn_squares = 0b0000000011111111000000000000000000000000000000001111111100000000ULL;
-constexpr uint64_t c_init_black_pieces = 0b1111111111111111000000000000000000000000000000000000000000000000ULL;
-constexpr uint64_t c_init_total_squares = 0b1111111111111111000000000000000000000000000000001111111111111111ULL;
-constexpr uint64_t c_init_white_pieces = 0b0000000000000000000000000000000000000000000000001111111111111111ULL;
+constexpr uint64_t c_init_rook_squares =    0b1000000100000000000000000000000000000000000000000000000010000001ULL;
+constexpr uint64_t c_init_knight_squares =  0b0100001000000000000000000000000000000000000000000000000001000010ULL;
+constexpr uint64_t c_init_bishop_squares =  0b0010010000000000000000000000000000000000000000000000000000100100ULL;
+constexpr uint64_t c_init_queen_squares =   0b0001000000000000000000000000000000000000000000000000000000010000ULL;
+constexpr uint64_t c_init_king_squares =    0b0000100000000000000000000000000000000000000000000000000000001000ULL;
+constexpr uint64_t c_init_pawn_squares =    0b0000000011111111000000000000000000000000000000001111111100000000ULL;
+constexpr uint64_t c_init_black_pieces =    0b1111111111111111000000000000000000000000000000000000000000000000ULL;
+constexpr uint64_t c_init_total_squares =   0b1111111111111111000000000000000000000000000000001111111111111111ULL;
+constexpr uint64_t c_init_white_pieces =    0b0000000000000000000000000000000000000000000000001111111111111111ULL;
 constexpr uint64_t c_full_board = 0xFFFFFFFFFFFFFFFFULL;
 
 // Corners of the board, used for castling rook isolation.
-constexpr BitBoard c_bottom_left_corner =  0b0000000000000000000000000000000000000000000000000000000010000000ULL;;
-constexpr BitBoard c_bottom_right_corner = 0b0000000000000000000000000000000000000000000000000000000000000001ULL;
-constexpr BitBoard c_top_left_corner =     0b1000000000000000000000000000000000000000000000000000000000000000ULL;
-constexpr BitBoard c_top_right_corner =    0b0000000100000000000000000000000000000000000000000000000000000000ULL;
+constexpr BitBoard c_bottom_left_corner =   0b0000000000000000000000000000000000000000000000000000000010000000ULL;;
+constexpr BitBoard c_bottom_right_corner =  0b0000000000000000000000000000000000000000000000000000000000000001ULL;
+constexpr BitBoard c_top_left_corner =      0b1000000000000000000000000000000000000000000000000000000000000000ULL;
+constexpr BitBoard c_top_right_corner =     0b0000000100000000000000000000000000000000000000000000000000000000ULL;
 
 // Squares that may not be attacked for castling.
 const BitBoard c_castle_k_squares_w1 =      0b0000000000000000000000000000000000000000000000000000000000000100ULL;
@@ -130,9 +130,15 @@ constexpr int c_max_count_depth = 10;
 // Shorten builtin function names.
 #define pcnt __builtin_popcountll
 
+// MoveStack is shared across the whole active recursion path (each ply's
+// sublist stays alive until that ply's loop fully unwinds), so its capacity
+// must cover the SUM of branching factors across c_max_count_depth plies, not
+// just a single ply. The theoretical max legal moves in one position is 218,
+// so 218 * c_max_count_depth (with headroom) comfortably covers worst case.
 #define STACKSIZE 256
-#define MoveStack Stack<Move, STACKSIZE>
-#define MoveList ListFromStack<Move, STACKSIZE>
+#define MOVE_STACKSIZE (218 * c_max_count_depth)
+#define MoveStack Stack<Move, MOVE_STACKSIZE>
+#define MoveList ListFromStack<Move, MOVE_STACKSIZE>
 #define FlagStack Stack<u_int8_t, STACKSIZE>
 
 #ifdef __BMI2__
