@@ -9,6 +9,9 @@
 
 #ifdef move_gen
 
+namespace sunsnake
+{
+
 namespace make_move
 {
 
@@ -390,6 +393,28 @@ namespace make_move
 		state.data = flag_stack.pop(); // Restore the game state data.
 		state.switch_player();
 	}
+
+	// Runtime dispatch for callers holding a GameState rather than a
+	// compile-time Player.
+	inline void make_move(Board &board, GameState &state, Move move, FlagStack &flag_stack)
+	{
+		if (state.player() == Player::white)
+			make_move<Player::white>(board, state, move, flag_stack);
+		else
+			make_move<Player::black>(board, state, move, flag_stack);
+	}
+
+	// state.player() has already been flipped by make_move() to the side now
+	// to move, so the side that made the move is its opponent.
+	inline void unmake_move(Board &board, GameState &state, Move move, FlagStack &flag_stack)
+	{
+		if (state.player() == Player::white)
+			unmake_move<Player::black>(board, state, move, flag_stack);
+		else
+			unmake_move<Player::white>(board, state, move, flag_stack);
+	}
 } // namespace make_move
+
+} // namespace sunsnake
 
 #endif // move_gen

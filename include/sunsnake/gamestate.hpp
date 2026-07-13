@@ -5,6 +5,9 @@
 
 #pragma once
 
+namespace sunsnake
+{
+
 struct GameState
 {
     // 4 bits for en passant file (0 if none, 1-8 for a-h)
@@ -104,3 +107,5 @@ constexpr GameState get_initial_gamestate()
 {
     return GameState(Player::white, 0, true, true, true, true);
 }
+
+} // namespace sunsnake

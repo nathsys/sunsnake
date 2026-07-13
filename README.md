@@ -14,6 +14,7 @@ A bitboard chess move generator and perft engine written in C++20.
 * Per piece pin resolution: each pinned piece's legal squares are computed individually through ray intersection with the king's line of sight, rather than one shared mask per pin direction, so two simultaneous pins of the same direction on different pieces are each handled correctly
 * Bitboard core using hardware `PEXT`/`PDEP` (BMI2) for sliding piece attacks, falling back to magic bitboard multiplication when unavailable
 * Move generation and perft counting kept as separate components (`move_generator.hpp` versus `move_counter.hpp`), so the generator can be reused by a search algorithm without depending on anything perft specific
+* Usable as a library: headers live under `include/sunsnake/` in `namespace sunsnake`, consumable via CMake `add_subdirectory` or `FetchContent`, with a worked example in `examples/`
 * Profile guided optimization available as a single script
 * Exact perft verification through depth 8 plus randomized fuzz testing against Stockfish
 
@@ -70,6 +71,33 @@ cmake --preset tests && cmake --build --preset tests && ./build/tests/sunsnake
 ./build/release/sunsnake move e2e4 move e7e5 perft 5
 ```
 
+## Using this as a library
+
+Move generation lives entirely in headers under `include/sunsnake/`, wrapped in `namespace sunsnake`, and does not depend on anything in `main.cpp`. A search algorithm can link against it directly instead of copying files around.
+
+Add it to a CMake project with `add_subdirectory` or `FetchContent`, then link against `sunsnake::sunsnake`:
+
+```cmake
+add_subdirectory(sunsnake)
+target_link_libraries(my_engine PRIVATE sunsnake::sunsnake)
+```
+
+The core types are `Board` (piece placement and occupancy), `GameState` (side to move, castling rights, en passant file), `Move` (a packed 16 bit encoding), and `MoveStack`/`MoveList` (the stack based move buffer used during generation, so generating moves does not allocate).
+
+Player color, piece type, and slider direction are compile time template parameters throughout, so a hot recursive search should template its own functions on `Player` the same way `move_counting::perft` does internally. For the call boundary, where a caller typically only has a runtime `GameState`, non-template overloads are available:
+
+* `move_generation::generate_moves(board, state, move_stack)`
+* `make_move::make_move(board, state, move, flag_stack)`
+* `make_move::unmake_move(board, state, move, flag_stack)`
+
+`examples/search_skeleton.cpp` is a minimal negamax that shows the full pattern: generate moves, make one, recurse, unmake it.
+
+```sh
+cmake --preset release -DSUNSNAKE_BUILD_EXAMPLES=ON
+cmake --build --preset release
+./build/release/examples/search_skeleton 5
+```
+
 ## Profile guided optimization
 
 ```sh
@@ -118,6 +146,8 @@ python3 tools/perft_compare.py fuzz --trials 100 --depth 5 --stockfish /path/to/
 The self-test suite (`tests` preset above) checks the magic bitboard attack tables against on the fly attack generation. Both the exact perft check and the self-test suite run in CI on every push.
 
 ## Architecture
+
+All headers live under `include/sunsnake/` and their contents sit in `namespace sunsnake`.
 
 * `chess_board.hpp`, the board representation: bitboards, occupancy, attack queries
 * `move_generator.hpp`, legal move generation, the reusable core of the project

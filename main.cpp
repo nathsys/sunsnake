@@ -1,13 +1,15 @@
 #include <iostream>
 #include <sstream>
 #include <vector>
-#include "defaults.hpp"
-#include "dynamic_tables.hpp"
-#include "move_logic.hpp"
-#include "testing.hpp"
-#include "move_generator.hpp"
-#include "move_counter.hpp"
-#include "util.hpp"
+#include "sunsnake/defaults.hpp"
+#include "sunsnake/dynamic_tables.hpp"
+#include "sunsnake/move_logic.hpp"
+#include "sunsnake/testing.hpp"
+#include "sunsnake/move_generator.hpp"
+#include "sunsnake/move_counter.hpp"
+#include "sunsnake/util.hpp"
+
+using namespace sunsnake;
 
 static void try_make_move(std::string move_str, Board &board, GameState &state)
 {

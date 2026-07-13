@@ -5,6 +5,9 @@
 
 #pragma once
 
+namespace sunsnake
+{
+
 struct PinSplit
 {
 	BitBoard dg_not_orth;
@@ -114,3 +117,5 @@ struct MaskSet
 		nopin = ~(pinmask_dg | pinmask_orth);
 	}
 };
+
+} // namespace sunsnake

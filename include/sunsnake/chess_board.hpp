@@ -5,6 +5,9 @@
 
 #pragma once
 
+namespace sunsnake
+{
+
 struct Board
 {
 	// Occupancy boards.
@@ -236,3 +239,5 @@ struct Board
 		std::cout << "   a b c d e f g h" << std::endl;
 	}
 };
+
+} // namespace sunsnake
