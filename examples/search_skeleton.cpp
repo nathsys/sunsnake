@@ -1,8 +1,10 @@
 // Minimal worked example of using sunsnake as a move generation backend.
 // Shows the generate -> make -> recurse -> unmake pattern a search needs,
-// plus root move ordering by a naive material-only negamax.
+// plus root move ordering by a naive material-only negamax with a
+// transposition table keyed by GameState::hash.
 #include <chrono>
 #include <iostream>
+#include <unordered_map>
 
 #include "sunsnake/chess_board.hpp"
 #include "sunsnake/defaults.hpp"
@@ -12,11 +14,20 @@
 #include "sunsnake/move_generator.hpp"
 #include "sunsnake/movelist.hpp"
 #include "sunsnake/util.hpp"
+#include "sunsnake/zobrist.hpp"
 
 using namespace sunsnake;
 
 constexpr int c_mate_score = 30000;
 constexpr int c_piece_value[] = {100, 320, 330, 500, 900, 0}; // pawn..king
+
+// depth is how many plies below this entry the score was searched to, so a
+// shallower cached entry can't be reused to answer a deeper query.
+struct TTEntry
+{
+    int depth;
+    int score;
+};
 
 template <Player player>
 int material_balance(const Board &board)
@@ -36,8 +47,12 @@ int material_balance(const Board &board)
 }
 
 template <Player player>
-int negamax(Board &board, GameState &state, int depth, MoveStack &move_stack, FlagStack &flag_stack)
+int negamax(Board &board, GameState &state, int depth, MoveStack &move_stack, FlagStack &flag_stack, std::unordered_map<Hash, TTEntry> &tt)
 {
+    auto cached = tt.find(state.hash);
+    if (cached != tt.end() && cached->second.depth >= depth)
+        return cached->second.score;
+
     MoveList moves = move_generation::generate_moves<player>(board, state, move_stack);
 
     if (moves.size() == 0)
@@ -53,11 +68,13 @@ int negamax(Board &board, GameState &state, int depth, MoveStack &move_stack, Fl
     for (Move &move : moves)
     {
         make_move::make_move<player>(board, state, move, flag_stack);
-        int score = -negamax<opponent<player>()>(board, state, depth - 1, move_stack, flag_stack);
+        int score = -negamax<opponent<player>()>(board, state, depth - 1, move_stack, flag_stack, tt);
         make_move::unmake_move<player>(board, state, move, flag_stack);
         if (score > best)
             best = score;
     }
+
+    tt[state.hash] = {depth, best};
     return best;
 }
 
@@ -65,7 +82,7 @@ int negamax(Board &board, GameState &state, int depth, MoveStack &move_stack, Fl
 // the library's own move_counting::perft). The root call is the one place a
 // caller typically only has a runtime GameState, so it uses the non-template
 // generate_moves/make_move/unmake_move overloads instead.
-Move search_root(Board &board, GameState &state, int depth, MoveStack &move_stack, FlagStack &flag_stack)
+Move search_root(Board &board, GameState &state, int depth, MoveStack &move_stack, FlagStack &flag_stack, std::unordered_map<Hash, TTEntry> &tt)
 {
     MoveList moves = move_generation::generate_moves(board, state, move_stack);
     Move best_move = 0;
@@ -75,8 +92,8 @@ Move search_root(Board &board, GameState &state, int depth, MoveStack &move_stac
     {
         make_move::make_move(board, state, move, flag_stack);
         int score = state.player() == Player::white
-                        ? -negamax<Player::white>(board, state, depth - 1, move_stack, flag_stack)
-                        : -negamax<Player::black>(board, state, depth - 1, move_stack, flag_stack);
+                        ? -negamax<Player::white>(board, state, depth - 1, move_stack, flag_stack, tt)
+                        : -negamax<Player::black>(board, state, depth - 1, move_stack, flag_stack, tt);
         make_move::unmake_move(board, state, move, flag_stack);
 
         if (score > best_score)
@@ -98,14 +115,15 @@ int main(int argc, char **argv)
     GameState state = get_initial_gamestate();
     MoveStack move_stack;
     FlagStack flag_stack;
+    std::unordered_map<Hash, TTEntry> tt;
 
     auto start = std::chrono::high_resolution_clock::now();
 
-    search_root(board, state, depth, move_stack, flag_stack);
+    search_root(board, state, depth, move_stack, flag_stack, tt);
 
     auto end = std::chrono::high_resolution_clock::now();
     auto ms = std::chrono::duration_cast<std::chrono::milliseconds>(end - start).count();
-    std::cout << "depth " << depth << " in " << ms << " ms\n";
+    std::cout << "depth " << depth << " in " << ms << " ms, " << tt.size() << " transposition table entries\n";
 
     return 0;
 }

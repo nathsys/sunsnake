@@ -46,9 +46,27 @@ static bool process_command(const std::vector<std::string> &args, Board &board, 
     else if (command == "perft" && args.size() >= 2)
     {
         int depth = std::stoi(args[1]);
-        std::cerr << "Running perft to depth " << depth << " from current position\n";
-        move_counting::perft(board, gamestate, depth);
-        i += 1; // For command line mode, skip the next argument
+        bool use_hash = args.size() >= 3 && args[2] == "hash";
+        bool compare = use_hash && args.size() >= 4 && args[3] == "compare";
+
+        if (compare)
+        {
+            std::cerr << "Running perft to depth " << depth << " from current position, plain and Zobrist-hashed\n";
+            move_counting::perft_validate_hash(board, gamestate, depth);
+            i += 3; // For command line mode, skip depth, "hash", and "compare"
+        }
+        else if (use_hash)
+        {
+            std::cerr << "Running perft to depth " << depth << " from current position (Zobrist-hashed)\n";
+            move_counting::perft(board, gamestate, depth, true);
+            i += 2; // For command line mode, skip depth and "hash"
+        }
+        else
+        {
+            std::cerr << "Running perft to depth " << depth << " from current position\n";
+            move_counting::perft(board, gamestate, depth);
+            i += 1; // For command line mode, skip the next argument
+        }
     }
     else if (command == "move" && args.size() >= 2)
     {
@@ -63,7 +81,9 @@ static bool process_command(const std::vector<std::string> &args, Board &board, 
     else
     {
         std::cerr << "Unknown command or insufficient arguments. Available commands:\n";
-        std::cerr << "  perft <depth>        - Run perft to specified depth from current position\n";
+        std::cerr << "  perft <depth>              - Run perft to specified depth from current position\n";
+        std::cerr << "  perft <depth> hash         - Same, but using a Zobrist-hash-cached perft internally\n";
+        std::cerr << "  perft <depth> hash compare - Run perft plain and hashed, report whether they match and the NPS difference\n";
         std::cerr << "  move <move>          - Make a move (e.g., e2e4)\n";
         std::cerr << "  print                - Print current board\n";
         std::cerr << "  state                - Print game state\n";
@@ -118,7 +138,9 @@ int main(int argc, char **argv)
     // Interactive mode
     board.print_board();
     std::cout << "\nEntering interactive mode. Available commands:\n";
-    std::cout << "  perft <depth>        - Run perft to specified depth from current position\n";
+    std::cout << "  perft <depth>              - Run perft to specified depth from current position\n";
+    std::cout << "  perft <depth> hash         - Same, but using a Zobrist-hash-cached perft internally\n";
+    std::cout << "  perft <depth> hash compare - Run perft plain and hashed, report whether they match and the NPS difference\n";
     std::cout << "  move <move>          - Make a move (e.g., e2e4)\n";
     std::cout << "  print                - Print current board\n";
     std::cout << "  state                - Print game state\n";

@@ -11,6 +11,7 @@ namespace sunsnake
 // Define aliases for data structures.
 typedef uint64_t BitBoard;
 typedef uint_fast8_t Square;
+typedef uint64_t Hash;
 
 // Define default chess board configuration.
 // Bit on 1 means a piece is initialized on that particular square.

@@ -4,6 +4,10 @@
 #include "util.hpp"
 #include "dynamic_tables.hpp"
 #include "move_logic.hpp"
+#include "gamestate.hpp"
+#include "make_move.hpp"
+#include "move_generator.hpp"
+#include "zobrist.hpp"
 
 #pragma once
 
@@ -51,8 +55,37 @@ namespace Testing {
         }
     }
 
+    // Walks the move tree, checking at every node that the incrementally
+    // maintained Zobrist hash matches an independent from-scratch recompute,
+    // and that unmaking a move restores the exact pre-move hash.
+    template <Player player>
+    static void walk_zobrist(Board &board, GameState &state, int depth, MoveStack &move_stack, FlagStack &flag_stack) {
+        const Hash expected = Zobrist::compute(board, state.data, state.player());
+        assert(state.hash == expected && "Zobrist hash does not match a from-scratch recompute!");
+
+        if (depth == 0)
+            return;
+
+        for (Move &move : move_generation::generate_moves<player>(board, state, move_stack)) {
+            const Hash before = state.hash;
+            make_move::make_move<player>(board, state, move, flag_stack);
+            walk_zobrist<opponent<player>()>(board, state, depth - 1, move_stack, flag_stack);
+            make_move::unmake_move<player>(board, state, move, flag_stack);
+            assert(state.hash == before && "Zobrist hash was not restored after unmake_move!");
+        }
+    }
+
+    static void test_zobrist_consistency() {
+        Board board;
+        GameState state = get_initial_gamestate();
+        MoveStack move_stack;
+        FlagStack flag_stack;
+        walk_zobrist<Player::white>(board, state, 4, move_stack, flag_stack);
+    }
+
     static void run_all_tests() {
         test_magic_atk_lookup();
+        test_zobrist_consistency();
         std::cout << "All tests passed!" << std::endl;
     }
 }
