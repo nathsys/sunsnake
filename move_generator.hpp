@@ -53,6 +53,16 @@ namespace move_generation
         }
     }
 
+    template <BitBoard (*pin_line)(const Board &, Square, Square), void (*gen)(Board &, BitBoard, BitBoard, MoveStack &)>
+    inline void generate_pinned(Board &board, MaskSet &mask, BitBoard pinned, MoveStack &moves)
+    {
+        while (pinned)
+        {
+            const Square from = pop(pinned);
+            gen(board, square_to_mask(from), pin_line(board, mask.king_square, from) & mask.legal_squares, moves);
+        }
+    }
+
     // Generate all the slider moves.
     template <Player player>
     inline void get_slider_moves(MaskSet &mask, Board &board, MoveStack &moves)
@@ -61,13 +71,12 @@ namespace move_generation
         BitBoard rooks = board.get_piece_board<player, PieceType::rook>();
         BitBoard queens = board.get_piece_board<player, PieceType::queen>();
         const PinSplit pins = mask.split_pins();
-        // Pinned + unpinned.
-        moves_for_piecetype<PieceType::bishop, player>(board, bishops & pins.dg_not_orth, pins.cmt_diag, moves);
+        generate_pinned<diag_pin_line, moves_for_piecetype<PieceType::bishop, player>>(board, mask, bishops & pins.dg_not_orth, moves);
         moves_for_piecetype<PieceType::bishop, player>(board, bishops & mask.nopin, mask.legal_squares, moves);
-        moves_for_piecetype<PieceType::queen, player, SliderType::diagonal>(board, queens & pins.dg_not_orth, pins.cmt_diag, moves);
+        generate_pinned<diag_pin_line, moves_for_piecetype<PieceType::queen, player, SliderType::diagonal>>(board, mask, queens & pins.dg_not_orth, moves);
         moves_for_piecetype<PieceType::queen, player>(board, queens & mask.nopin, mask.legal_squares, moves);
-        moves_for_piecetype<PieceType::queen, player, SliderType::orthogonal>(board, queens & pins.orth_not_dg, pins.cmt_orth, moves);
-        moves_for_piecetype<PieceType::rook, player>(board, rooks & pins.orth_not_dg, pins.cmt_orth, moves);
+        generate_pinned<orth_pin_line, moves_for_piecetype<PieceType::queen, player, SliderType::orthogonal>>(board, mask, queens & pins.orth_not_dg, moves);
+        generate_pinned<orth_pin_line, moves_for_piecetype<PieceType::rook, player>>(board, mask, rooks & pins.orth_not_dg, moves);
         moves_for_piecetype<PieceType::rook, player>(board, rooks & mask.nopin, mask.legal_squares, moves);
     }
 
@@ -189,16 +198,13 @@ namespace move_generation
         BitBoard normal_pawns = all_pawns ^ normal_promotion_pawns;
         const BitBoard pinned_pawns = extract_pinned(normal_pawns, mask.nopin);
         const BitBoard pinned_promotion_pawns = extract_pinned(normal_promotion_pawns, mask.nopin);
-        // A pinned pawn must stay on the specific line pinning it. A pawn
-        // pinned diagonally can't use an unrelated orthogonal pin's squares
-        // (and vice versa), so each pin type must be handled separately.
         const PinSplit pins = mask.split_pins();
         generate_pawn_moves<player>(board, normal_pawns, mask.legal_squares, moves);
-        generate_pawn_moves<player>(board, pinned_pawns & pins.dg_not_orth, pins.cmt_diag, moves);
-        generate_pawn_moves<player>(board, pinned_pawns & pins.orth_not_dg, pins.cmt_orth, moves);
+        generate_pinned<diag_pin_line, generate_pawn_moves<player>>(board, mask, pinned_pawns & pins.dg_not_orth, moves);
+        generate_pinned<orth_pin_line, generate_pawn_moves<player>>(board, mask, pinned_pawns & pins.orth_not_dg, moves);
         generate_promotion_moves<player>(board, normal_promotion_pawns, mask.legal_squares, moves);
-        generate_promotion_moves<player>(board, pinned_promotion_pawns & pins.dg_not_orth, pins.cmt_diag, moves);
-        generate_promotion_moves<player>(board, pinned_promotion_pawns & pins.orth_not_dg, pins.cmt_orth, moves);
+        generate_pinned<diag_pin_line, generate_promotion_moves<player>>(board, mask, pinned_promotion_pawns & pins.dg_not_orth, moves);
+        generate_pinned<orth_pin_line, generate_promotion_moves<player>>(board, mask, pinned_promotion_pawns & pins.orth_not_dg, moves);
     }
 
     template <Player player>

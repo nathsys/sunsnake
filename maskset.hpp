@@ -5,15 +5,23 @@
 
 #pragma once
 
-// Splits a pin mask into the squares reachable along each pin direction,
-// and the pieces that are pinned to only one of those directions.
 struct PinSplit
 {
 	BitBoard dg_not_orth;
 	BitBoard orth_not_dg;
-	BitBoard cmt_diag;
-	BitBoard cmt_orth;
 };
+
+inline BitBoard diag_pin_line(const Board &board, Square king_square, Square piece_square)
+{
+	const BitBoard piece_mask = square_to_mask(piece_square);
+	return get_bishop_move(king_square, board.occ_board ^ piece_mask) & get_bishop_move(piece_square, board.occ_board);
+}
+
+inline BitBoard orth_pin_line(const Board &board, Square king_square, Square piece_square)
+{
+	const BitBoard piece_mask = square_to_mask(piece_square);
+	return get_rook_move(king_square, board.occ_board ^ piece_mask) & get_rook_move(piece_square, board.occ_board);
+}
 
 struct MaskSet
 {
@@ -37,8 +45,6 @@ struct MaskSet
 		return {
 			pinmask_dg & ~pinmask_orth,
 			pinmask_orth & ~pinmask_dg,
-			legal_squares & pinmask_dg,
-			legal_squares & pinmask_orth,
 		};
 	}
 
