@@ -3,67 +3,104 @@
 #include <cstdint>
 #include <iostream>
 
-struct GameState {
-    bool w_can_castle_k = true;
-    bool w_can_castle_q = true;
-    bool b_can_castle_k = true;
-    bool b_can_castle_q = true;
-    Player current_player = Player::white;
-    bool en_passant = false;
+#pragma once
 
-    constexpr GameState(Player player = Player::white, bool en_passant = false, 
+struct GameState
+{
+    // 4 bits for en passant file (0 if none, 1-8 for a-h)
+    // 1 bit each for white kingside, white queenside, black kingside, black queenside castling rights.
+    uint data = 00001111;
+    Player current_player = Player::white;
+
+    constexpr GameState(Player player = Player::white, u_int8_t en_passant = 0,
                         bool w_can_castle_k = true, bool w_can_castle_q = true,
-                        bool b_can_castle_k = true, bool b_can_castle_q = true) : 
-                        w_can_castle_k(w_can_castle_k), w_can_castle_q(w_can_castle_q),
-                        b_can_castle_k(b_can_castle_k), b_can_castle_q(b_can_castle_q),
-                        current_player(player), en_passant(en_passant) {
+                        bool b_can_castle_k = true, bool b_can_castle_q = true) : data(0b00001111), current_player(player)
+    {
+        if (en_passant > 0)
+            data |= (en_passant & 0b11110000); // Set the first 4 bits to the en passant file.
+
+        if (!w_can_castle_k)
+            data &= 0b11111101; // Clear bit 1.
+        if (!w_can_castle_q)
+            data &= 0b11111110; // Clear bit 0.
+        if (!b_can_castle_k)
+            data &= 0b11111011; // Clear bit 6.
+        if (!b_can_castle_q)
+            data &= 0b11110111; // Clear bit 7.
     }
 
-    constexpr Player player() const {
+    constexpr bool can_castle_k(Player player) const
+    {
+        if (player == Player::white)
+            return data & 0b00000010;
+        else
+            return data & 0b00000100;
+    }
+
+    constexpr bool can_castle_q(Player player) const
+    {
+        if (player == Player::white)
+            return data & 0b00000001;
+        else
+            return data & 0b00001000;
+    }
+
+    constexpr Player player() const
+    {
         return current_player;
     }
 
-    constexpr GameState switch_player() const {
-        return GameState(current_player == Player::white ? Player::black : Player::white, en_passant,
-                         w_can_castle_k, w_can_castle_q, b_can_castle_k, b_can_castle_q);
+    constexpr void switch_player()
+    {
+        current_player = (current_player == Player::white) ? Player::black : Player::white;
     }
 
-    constexpr GameState can_ep_next_ply() const {
-        return GameState(current_player, true, w_can_castle_k, w_can_castle_q, b_can_castle_k, b_can_castle_q);
+    constexpr bool can_ep() const
+    {
+        return data & 0b11110000;
     }
 
-    constexpr bool can_ep() const {
-        return en_passant;
+    template <Player player>
+    constexpr Square ep_target() const
+    {
+        const uint8_t ep_file = ((data & 0b11110000) - 1) >> 4;
+        return player == Player::white ? 40 + ep_file : 16 + ep_file;
     }
 
-    template<Player player>
-    constexpr GameState rm_cr() const {
-        bool new_w_can_castle_k = w_can_castle_k;
-        bool new_w_can_castle_q = w_can_castle_q;
-        bool new_b_can_castle_k = b_can_castle_k;
-        bool new_b_can_castle_q = b_can_castle_q;
-        if constexpr (player == Player::white) {
-            new_w_can_castle_k = false;
-            new_w_can_castle_q = false;
-        } else {
-            new_b_can_castle_k = false;
-            new_b_can_castle_q = false;
+    template <Player player>
+    constexpr void rm_cr()
+    {
+        if constexpr (player == Player::white)
+        {
+            data &= 0b11111100; // Clear bits 0 and 1.
         }
-
-        return GameState(current_player, en_passant, new_w_can_castle_k, new_w_can_castle_q, new_b_can_castle_k, new_b_can_castle_q);
+        else
+        {
+            data &= 0b11110011; // Clear bits 2 and 3.
+        }
     }
 
-    void print_state_data() const {
-        std::cout << "Current player: " << (current_player == Player::white ? "White" : "Black") << '\n';
-        std::cout << "Can white castle kingside: " << w_can_castle_k << '\n';
-        std::cout << "Can white castle queenside: " << w_can_castle_q << '\n';
-        std::cout << "Can black castle kingside: " << b_can_castle_k << '\n';
-        std::cout << "Can black castle queenside: " << b_can_castle_q << '\n';
-        std::cout << "En passant available: " << en_passant << '\n';
+    template <Player player, bool kingside>
+    constexpr void rm_cr()
+    {
+        if constexpr (player == Player::white)
+        {
+            if constexpr (kingside)
+                data &= 0b11111101; // Clear bit 1.
+            else
+                data &= 0b11111110; // Clear bit 0.
+        }
+        else
+        {
+            if constexpr (kingside)
+                data &= 0b11111011; // Clear bit 2.
+            else
+                data &= 0b11110111; // Clear bit 3.
+        }
     }
-
 };
 
-constexpr GameState get_initial_gamestate() {
-    return GameState(Player::white, false, true, true, true, true);
+constexpr GameState get_initial_gamestate()
+{
+    return GameState(Player::white, 0, true, true, true, true);
 }

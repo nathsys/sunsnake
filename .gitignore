@@ -1,0 +1,15 @@
+build/
+build-*/
+*.gcda
+*.gcno
+CMakeFiles/
+CMakeCache.txt
+compile_commands.json
+
+*.o
+*.out
+__pycache__/
+
+.vscode/
+.idea/
+*.swp

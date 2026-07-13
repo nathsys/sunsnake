@@ -1,0 +1,38 @@
+name: CI
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+
+jobs:
+  build-and-test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Configure + build (Release)
+        run: |
+          cmake --preset release
+          cmake --build --preset release -j
+
+      - name: Perft smoke test (depth 6, known-correct node count)
+        run: |
+          RESULT=$(./build/release/sunsnake perft 6 2>/dev/null | grep "Nodes searched" | tr -dc '0-9')
+          EXPECTED=119060324
+          echo "Got $RESULT nodes, expected $EXPECTED"
+          [ "$RESULT" -eq "$EXPECTED" ]
+
+      - name: Self-test suite
+        run: |
+          cmake --preset tests
+          cmake --build --preset tests -j
+          ./build/tests/sunsnake print 2>&1 | grep -q "All tests passed!"
+
+      - name: PGO build smoke test
+        run: ./scripts/build_pgo.sh
+
+      - name: Fuzz test against Stockfish
+        run: |
+          sudo apt-get update && sudo apt-get install -y stockfish
+          python3 tools/perft_compare.py fuzz --trials 30 --depth 5 --seed 1

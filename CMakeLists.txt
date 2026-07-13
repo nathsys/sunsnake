@@ -1,66 +1,46 @@
 cmake_minimum_required(VERSION 3.21)
-set(CMAKE_CXX_FLAGS_DEBUG "-g -gdwarf-4")
+project(sunsnake CXX)
 
-project(sunsnake)
+set(CMAKE_CXX_STANDARD 20)
+set(CMAKE_CXX_STANDARD_REQUIRED ON)
+set(CMAKE_CXX_EXTENSIONS OFF)
+set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
-add_compile_options(
-    -Ofast
-	-funroll-loops
-    -march=native
-)
-set (CMAKE_CXX_STANDARD 20)
-
-add_executable(main main.cpp)
-
-if(CMAKE_BUILD_TYPE STREQUAL "Generate")
-	set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fprofile-generate")
-	set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -fprofile-generate")
-elseif(CMAKE_BUILD_TYPE STREQUAL "Release")
-	set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fprofile-use")
-	set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -fprofile-use")
-elseif(CMAKE_BUILD_TYPE STREQUAL "Debug")
-	set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -g -O0")
-    set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -g -O0")
+if(NOT CMAKE_BUILD_TYPE)
+    set(CMAKE_BUILD_TYPE Release CACHE STRING "Build type: Debug, Release, PGOGenerate, PGOUse" FORCE)
 endif()
 
-# Custom target for Generate build
-add_custom_target(generate
-  COMMAND ${CMAKE_COMMAND} -DCMAKE_BUILD_TYPE=Generate ${CMAKE_SOURCE_DIR} && make
-  COMMENT "Building in Generate mode"
-)
+option(SUNSNAKE_NATIVE_ARCH "Optimize for this machine's CPU (-march=native)" ON)
+option(SUNSNAKE_BUILD_TESTS "Enable the internal self-test suite" OFF)
+option(SUNSNAKE_GENERATE_MAGICS "Build a helper that (re)generates magic bitboard numbers" OFF)
 
-# Custom target for Release build
-add_custom_target(release
-  COMMAND ${CMAKE_COMMAND} -DCMAKE_BUILD_TYPE=Release ${CMAKE_SOURCE_DIR} && make
-  COMMENT "Building in Release mode"
-)
+add_executable(sunsnake main.cpp)
 
-add_custom_target(debug
-	COMMAND ${CMAKE_COMMAND} -DCMAKE_BUILD_TYPE=Debug ${CMAKE_SOURCE_DIR} && make
-	COMMENT "Building in Debug mode"
-)
-
-add_custom_target(magics
-    COMMAND ${CMAKE_COMMAND} -DCMAKE_BUILD_TYPE=Debug -Dmagics=ON ${CMAKE_SOURCE_DIR} && make
-    COMMENT "Building in Magic Generation mode"
-)
-
-add_custom_target(testing
-    COMMAND ${CMAKE_COMMAND} -DCMAKE_BUILD_TYPE=Debug -Dtesting=ON ${CMAKE_SOURCE_DIR} && make
-    COMMENT "Building in Testing mode"
-)
-
-add_dependencies(generate main) 
-add_custom_command(TARGET generate POST_BUILD
-    COMMAND ./main
-    COMMENT "Generating profile files for profile guided compilation."
-)
-
-add_dependencies(release generate)
-
-if(magics)
-    target_compile_definitions(main PRIVATE generate_magics)
+set(SUNSNAKE_OPT_FLAGS -Ofast -funroll-loops)
+if(SUNSNAKE_NATIVE_ARCH)
+    list(APPEND SUNSNAKE_OPT_FLAGS -march=native)
 endif()
-if(testing)
-    target_compile_definitions(main PRIVATE run_tests)
+
+# PGOGenerate/PGOUse must be run from the same build directory so the
+# profile data lines up with the object files that produced/consume it.
+set(SUNSNAKE_PGO_DIR "${CMAKE_BINARY_DIR}/pgo-data")
+
+if(CMAKE_BUILD_TYPE STREQUAL "Debug")
+    target_compile_options(sunsnake PRIVATE -O0 -g -fno-omit-frame-pointer)
+elseif(CMAKE_BUILD_TYPE STREQUAL "PGOGenerate")
+    target_compile_options(sunsnake PRIVATE ${SUNSNAKE_OPT_FLAGS} -fprofile-generate=${SUNSNAKE_PGO_DIR})
+    target_link_options(sunsnake PRIVATE -fprofile-generate=${SUNSNAKE_PGO_DIR})
+elseif(CMAKE_BUILD_TYPE STREQUAL "PGOUse")
+    target_compile_options(sunsnake PRIVATE ${SUNSNAKE_OPT_FLAGS} -fprofile-use=${SUNSNAKE_PGO_DIR} -fprofile-correction)
+    target_link_options(sunsnake PRIVATE -fprofile-use=${SUNSNAKE_PGO_DIR})
+else()
+    target_compile_options(sunsnake PRIVATE ${SUNSNAKE_OPT_FLAGS})
+endif()
+
+if(SUNSNAKE_BUILD_TESTS)
+    target_compile_definitions(sunsnake PRIVATE run_tests)
+endif()
+
+if(SUNSNAKE_GENERATE_MAGICS)
+    target_compile_definitions(sunsnake PRIVATE generate_magics)
 endif()
