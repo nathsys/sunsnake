@@ -287,11 +287,11 @@ namespace Lookup
 	{
 		uint64_t attacks[max_perms<slider_type>()], used[max_perms<slider_type>()];
 		// Generate all possible permutations for the mask of this s.
-		constexpr BitBoard mask = IS_DIAGONAL(slider_type) ? bishop_masks[s] : rook_masks[s];
-		constexpr auto occ = create_all_perms<max_perms<slider_type>()>(mask);
+		const BitBoard mask = IS_DIAGONAL(slider_type) ? bishop_masks[s] : rook_masks[s];
+		const auto occ = create_all_perms<slider_type>(mask);
 		// Calculate the actual amount of permutations possible with current mask.
-		constexpr int relevant_bits = IS_DIAGONAL(slider_type) ? c_rel_bish_bits[s] : c_rel_rook_bits[s];
-		constexpr int occ_indices = 1 << relevant_bits;
+		const int relevant_bits = IS_DIAGONAL(slider_type) ? c_rel_bish_bits[s] : c_rel_rook_bits[s];
+		const int occ_indices = 1 << relevant_bits;
 		// Generate attack boards for all the permutations.
 		for (int i = 0; i < occ_indices; i++)
 			attacks[i] = IS_DIAGONAL(slider_type) ? bishop_attack_on_fly(s, occ[i]) : rook_attack_on_fly(s, occ[i]);
@@ -329,7 +329,7 @@ namespace Lookup
 	template <SliderType slider_type>
 	void init_magics()
 	{
-		for (Square s = 0; s < BOARD_SIZE; s++)
+		for (Square s = 0; s < c_board_size; s++)
 		{
 			if (s)
 				std::cout << ", \n";
@@ -338,6 +338,7 @@ namespace Lookup
 			else
 				std::cout << "0x" << std::hex << find_magic<SliderType::orthogonal>(s) << "ULL";
 		}
+		std::cout << std::dec << std::endl;
 	}
 #endif // generate_magics
 

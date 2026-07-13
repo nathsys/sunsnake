@@ -18,7 +18,7 @@ static void try_make_move(std::string move_str, Board &board, GameState &state)
     {
         if (MoveEncoding::move_to_string(move) == move_str)
         {
-            std::cout << "Making move: " << move_str << '\n';
+            std::cerr << "Making move: " << move_str << '\n';
             if (state.player() == Player::white)
                 make_move::make_move<Player::white>(board, state, move, flag_stack);
             else
@@ -26,7 +26,7 @@ static void try_make_move(std::string move_str, Board &board, GameState &state)
             return;
         }
     }
-    std::cout << "Move not found!\n";
+    std::cerr << "Move not found!\n";
     return;
 }
 
@@ -44,7 +44,7 @@ static bool process_command(const std::vector<std::string> &args, Board &board, 
     else if (command == "perft" && args.size() >= 2)
     {
         int depth = std::stoi(args[1]);
-        std::cout << "Running perft to depth " << depth << " from current position\n";
+        std::cerr << "Running perft to depth " << depth << " from current position\n";
         move_counting::perft(board, gamestate, depth);
         i += 1; // For command line mode, skip the next argument
     }
@@ -52,7 +52,6 @@ static bool process_command(const std::vector<std::string> &args, Board &board, 
     {
         std::string move_str = args[1];
         try_make_move(move_str, board, gamestate);
-        board.print_board();
         i += 1; // For command line mode, skip the next argument
     }
     else if (command == "print")
@@ -61,12 +60,12 @@ static bool process_command(const std::vector<std::string> &args, Board &board, 
     }
     else
     {
-        std::cout << "Unknown command or insufficient arguments. Available commands:\n";
-        std::cout << "  perft <depth>        - Run perft to specified depth from current position\n";
-        std::cout << "  move <move>          - Make a move (e.g., e2e4)\n";
-        std::cout << "  print                - Print current board\n";
-        std::cout << "  state                - Print game state\n";
-        std::cout << "  quit                 - Exit program\n";
+        std::cerr << "Unknown command or insufficient arguments. Available commands:\n";
+        std::cerr << "  perft <depth>        - Run perft to specified depth from current position\n";
+        std::cerr << "  move <move>          - Make a move (e.g., e2e4)\n";
+        std::cerr << "  print                - Print current board\n";
+        std::cerr << "  state                - Print game state\n";
+        std::cerr << "  quit                 - Exit program\n";
     }
 
     return true;
@@ -75,42 +74,47 @@ static bool process_command(const std::vector<std::string> &args, Board &board, 
 int main(int argc, char **argv)
 {
 #ifdef run_tests
-    // Testing::run_all_tests();
-#else
+    Testing::run_all_tests();
+#endif
+
 #ifdef generate_magics
     std::cout << "\nGenerating magic numbers for rook.\n"
               << std::endl;
-    Lookup::init_magics<false>();
+    Lookup::init_magics<SliderType::orthogonal>();
     std::cout << "\nGenerating magic numbers for bishop.\n"
               << std::endl;
-    Lookup::init_magics<true>();
-#endif
+    Lookup::init_magics<SliderType::diagonal>();
+    return 0;
 #endif
 
     Board board;
     GameState gamestate = get_initial_gamestate();
-    board.print_board();
 
-    // Process command line arguments.
-    for (int i = 1; i < argc; ++i)
+    if (argc > 1)
     {
-        std::vector<std::string> args;
-
-        // Build args vector from remaining command line arguments
-        for (int j = i; j < argc; ++j)
+        // Command line mode: run the given commands and exit. stdout is left
+        // clean (just the data each command prints) so it's easy to pipe
+        // into a script; status/progress messages go to stderr instead.
+        for (int i = 1; i < argc; ++i)
         {
-            args.push_back(argv[j]);
-        }
+            std::vector<std::string> args;
+            for (int j = i; j < argc; ++j)
+            {
+                args.push_back(argv[j]);
+            }
 
-        int skip_count = 0;
-        if (!process_command(args, board, gamestate, skip_count))
-        {
-            return 0; // Exit if quit/exit command was issued
+            int skip_count = 0;
+            if (!process_command(args, board, gamestate, skip_count))
+            {
+                return 0;
+            }
+            i += skip_count;
         }
-        i += skip_count;
+        return 0;
     }
 
-    // Interactive loop
+    // Interactive mode
+    board.print_board();
     std::cout << "\nEntering interactive mode. Available commands:\n";
     std::cout << "  perft <depth>        - Run perft to specified depth from current position\n";
     std::cout << "  move <move>          - Make a move (e.g., e2e4)\n";
@@ -122,7 +126,8 @@ int main(int argc, char **argv)
     while (true)
     {
         std::string input;
-        std::getline(std::cin, input);
+        if (!std::getline(std::cin, input))
+            break;
 
         if (input.empty())
         {

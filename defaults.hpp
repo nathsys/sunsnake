@@ -3,9 +3,7 @@
 
 #pragma once
 
-#define run_tests 1
 #define move_gen 1
-#define move_gen_print 1
 
 // Define aliases for data structures.
 typedef uint64_t BitBoard;

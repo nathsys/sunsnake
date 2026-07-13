@@ -1,0 +1,50 @@
+{
+  "version": 3,
+  "cmakeMinimumRequired": { "major": 3, "minor": 21, "patch": 0 },
+  "configurePresets": [
+    {
+      "name": "release",
+      "displayName": "Release",
+      "binaryDir": "${sourceDir}/build/release",
+      "cacheVariables": { "CMAKE_BUILD_TYPE": "Release" }
+    },
+    {
+      "name": "debug",
+      "displayName": "Debug",
+      "binaryDir": "${sourceDir}/build/debug",
+      "cacheVariables": { "CMAKE_BUILD_TYPE": "Debug" }
+    },
+    {
+      "name": "pgo-generate",
+      "displayName": "PGO: 1. generate profile",
+      "binaryDir": "${sourceDir}/build/pgo",
+      "cacheVariables": { "CMAKE_BUILD_TYPE": "PGOGenerate" }
+    },
+    {
+      "name": "pgo-use",
+      "displayName": "PGO: 2. optimized build",
+      "binaryDir": "${sourceDir}/build/pgo",
+      "cacheVariables": { "CMAKE_BUILD_TYPE": "PGOUse" }
+    },
+    {
+      "name": "tests",
+      "displayName": "Self-tests",
+      "binaryDir": "${sourceDir}/build/tests",
+      "cacheVariables": { "CMAKE_BUILD_TYPE": "Release", "SUNSNAKE_BUILD_TESTS": "ON" }
+    },
+    {
+      "name": "magics",
+      "displayName": "Magic number generator",
+      "binaryDir": "${sourceDir}/build/magics",
+      "cacheVariables": { "CMAKE_BUILD_TYPE": "Release", "SUNSNAKE_GENERATE_MAGICS": "ON" }
+    }
+  ],
+  "buildPresets": [
+    { "name": "release", "configurePreset": "release" },
+    { "name": "debug", "configurePreset": "debug" },
+    { "name": "pgo-generate", "configurePreset": "pgo-generate" },
+    { "name": "pgo-use", "configurePreset": "pgo-use" },
+    { "name": "tests", "configurePreset": "tests" },
+    { "name": "magics", "configurePreset": "magics" }
+  ]
+}
