@@ -1,5 +1,8 @@
 #include "defaults.hpp"
 
+namespace sunsnake
+{
+
 namespace Lookup
 {
 	// *= Moveboard lookup tables *=
@@ -270,3 +273,5 @@ namespace Lookup
 		0x2871100208002020ULL};
 
 }
+
+} // namespace sunsnake

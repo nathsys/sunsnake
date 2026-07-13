@@ -5,6 +5,9 @@
 
 #pragma once
 
+namespace sunsnake
+{
+
 // Get king move board.
 constexpr inline BitBoard get_king_move(const Square square)
 {
@@ -136,3 +139,5 @@ inline PawnTargets get_pawn_targets(BitBoard from, BitBoard push_mask, BitBoard 
 		get_pawn_attack<player, false>(from) & enemy_pieces,
 	};
 }
+
+} // namespace sunsnake

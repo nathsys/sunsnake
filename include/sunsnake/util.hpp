@@ -8,6 +8,9 @@
 
 #pragma once
 
+namespace sunsnake
+{
+
 inline bool get_bit_64(uint64_t num, uint8_t pos) { return (num & (1ULL << (pos))) != 0; }
 
 inline constexpr uint64_t square_to_mask(Square s) { return 1ULL << s; }
@@ -140,3 +143,5 @@ constexpr inline BitBoard get_corner() {
         return kingside ? c_top_right_corner : c_top_left_corner;
     }
 }
+
+} // namespace sunsnake

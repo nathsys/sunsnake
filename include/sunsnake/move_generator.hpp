@@ -11,6 +11,9 @@
 
 #ifdef move_gen
 
+namespace sunsnake
+{
+
 namespace move_generation
 {
     // Given an attack board and a specific square, get all the captures for a specific piece type.
@@ -255,6 +258,17 @@ namespace move_generation
         return move_stack.from(top);
     }
 
+    // Runtime dispatch for callers holding a GameState rather than a
+    // compile-time Player.
+    inline MoveList generate_moves(Board &board, GameState state, MoveStack &move_stack)
+    {
+        return state.player() == Player::white
+                   ? generate_moves<Player::white>(board, state, move_stack)
+                   : generate_moves<Player::black>(board, state, move_stack);
+    }
+
 } // namespace move_generation
+
+} // namespace sunsnake
 
 #endif // move_gen

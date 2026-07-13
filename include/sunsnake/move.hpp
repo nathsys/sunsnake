@@ -3,6 +3,9 @@
 #ifndef move_hpp
 #define move_hpp
 
+namespace sunsnake
+{
+
 typedef uint16_t Move;
 typedef uint8_t MoveFlag;
 
@@ -169,5 +172,7 @@ namespace MoveEncoding
         return move_str;
     }
 }
+
+} // namespace sunsnake
 
 #endif // move_hpp

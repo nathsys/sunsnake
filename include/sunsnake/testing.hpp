@@ -9,6 +9,9 @@
 
 #ifdef run_tests
 
+namespace sunsnake
+{
+
 // *= A suite of testing functions used to verify program integrity *=
 
 namespace Testing {
@@ -53,4 +56,7 @@ namespace Testing {
         std::cout << "All tests passed!" << std::endl;
     }
 }
+
+} // namespace sunsnake
+
 #endif

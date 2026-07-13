@@ -16,6 +16,9 @@
 
 #ifdef move_gen
 
+namespace sunsnake
+{
+
 namespace move_counting
 {
     template <Player player, bool is_root = false>
@@ -66,5 +69,7 @@ namespace move_counting
     }
 
 } // namespace move_counting
+
+} // namespace sunsnake
 
 #endif // move_gen

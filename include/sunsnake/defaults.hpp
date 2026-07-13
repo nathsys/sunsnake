@@ -5,6 +5,9 @@
 
 #define move_gen 1
 
+namespace sunsnake
+{
+
 // Define aliases for data structures.
 typedef uint64_t BitBoard;
 typedef uint_fast8_t Square;
@@ -143,3 +146,5 @@ constexpr int c_max_count_depth = 10;
 #define pdep _pdep_u64
 #define pext _pext_u64
 #endif
+
+} // namespace sunsnake

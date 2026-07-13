@@ -4,6 +4,9 @@
 
 #pragma once
 
+namespace sunsnake
+{
+
 template <typename T, size_t s>
 struct Stack;
 
@@ -48,3 +51,5 @@ struct Stack
 private:
 	T *last;
 };
+
+} // namespace sunsnake

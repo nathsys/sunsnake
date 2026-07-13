@@ -13,13 +13,22 @@ endif()
 option(SUNSNAKE_NATIVE_ARCH "Optimize for this machine's CPU (-march=native)" ON)
 option(SUNSNAKE_BUILD_TESTS "Enable the internal self-test suite" OFF)
 option(SUNSNAKE_GENERATE_MAGICS "Build a helper that (re)generates magic bitboard numbers" OFF)
+option(SUNSNAKE_BUILD_EXAMPLES "Build the examples/ programs" OFF)
+
+# Header-only move generation core. Consuming projects can link against
+# sunsnake::sunsnake via add_subdirectory() or FetchContent.
+add_library(sunsnake_lib INTERFACE)
+add_library(sunsnake::sunsnake ALIAS sunsnake_lib)
+target_include_directories(sunsnake_lib INTERFACE ${CMAKE_CURRENT_SOURCE_DIR}/include)
+target_compile_features(sunsnake_lib INTERFACE cxx_std_20)
+if(SUNSNAKE_NATIVE_ARCH)
+    target_compile_options(sunsnake_lib INTERFACE -march=native)
+endif()
 
 add_executable(sunsnake main.cpp)
+target_link_libraries(sunsnake PRIVATE sunsnake_lib)
 
 set(SUNSNAKE_OPT_FLAGS -Ofast -funroll-loops)
-if(SUNSNAKE_NATIVE_ARCH)
-    list(APPEND SUNSNAKE_OPT_FLAGS -march=native)
-endif()
 
 # PGOGenerate/PGOUse must be run from the same build directory so the
 # profile data lines up with the object files that produced/consume it.
@@ -43,4 +52,8 @@ endif()
 
 if(SUNSNAKE_GENERATE_MAGICS)
     target_compile_definitions(sunsnake PRIVATE generate_magics)
+endif()
+
+if(SUNSNAKE_BUILD_EXAMPLES)
+    add_subdirectory(examples)
 endif()

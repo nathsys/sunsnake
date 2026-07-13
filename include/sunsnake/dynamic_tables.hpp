@@ -10,6 +10,9 @@
 
 #pragma once
 
+namespace sunsnake
+{
+
 namespace Lookup
 {
 
@@ -369,3 +372,5 @@ namespace Lookup
 	constexpr std::array<std::array<uint64_t, 64>, 64> between_squares = create_betweens();
 
 }
+
+} // namespace sunsnake
