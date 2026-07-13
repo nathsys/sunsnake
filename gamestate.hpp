@@ -20,9 +20,9 @@ struct GameState
             data |= (en_passant & 0b11110000); // Set the first 4 bits to the en passant file.
 
         if (!w_can_castle_k)
-            data &= 0b11111110; // Clear bit 4.
+            data &= 0b11111101; // Clear bit 1.
         if (!w_can_castle_q)
-            data &= 0b11111101; // Clear bit 5.
+            data &= 0b11111110; // Clear bit 0.
         if (!b_can_castle_k)
             data &= 0b11111011; // Clear bit 6.
         if (!b_can_castle_q)
@@ -72,11 +72,11 @@ struct GameState
     {
         if constexpr (player == Player::white)
         {
-            data &= 0b11111100; // Clear bits 4 and 5.
+            data &= 0b11111100; // Clear bits 0 and 1.
         }
         else
         {
-            data &= 0b11110011; // Clear bits 6 and 7.
+            data &= 0b11110011; // Clear bits 2 and 3.
         }
     }
 
@@ -86,16 +86,16 @@ struct GameState
         if constexpr (player == Player::white)
         {
             if constexpr (kingside)
-                data &= 0b11111110; // Clear bit 4.
+                data &= 0b11111101; // Clear bit 1.
             else
-                data &= 0b11111101; // Clear bit 5.
+                data &= 0b11111110; // Clear bit 0.
         }
         else
         {
             if constexpr (kingside)
-                data &= 0b11111011; // Clear bit 6.
+                data &= 0b11111011; // Clear bit 2.
             else
-                data &= 0b11110111; // Clear bit 7.
+                data &= 0b11110111; // Clear bit 3.
         }
     }
 };
