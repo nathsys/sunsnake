@@ -35,6 +35,15 @@ inline Square pop(uint64_t &b)
     return idx;
 }
 
+// Splits pieces into a pinned subset (those on a pin line) and mutates
+// the input to hold the remaining, unpinned subset.
+inline BitBoard extract_pinned(BitBoard &pieces, BitBoard nopin)
+{
+    BitBoard pinned = pieces & ~nopin;
+    pieces ^= pinned;
+    return pinned;
+}
+
 static std::string print_binary(uint64_t n)
 {
     std::string result = "";

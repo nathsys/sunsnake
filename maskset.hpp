@@ -5,6 +5,16 @@
 
 #pragma once
 
+// Splits a pin mask into the squares reachable along each pin direction,
+// and the pieces that are pinned to only one of those directions.
+struct PinSplit
+{
+	BitBoard dg_not_orth;
+	BitBoard orth_not_dg;
+	BitBoard cmt_diag;
+	BitBoard cmt_orth;
+};
+
 struct MaskSet
 {
 	// squares that are empty or enemy;
@@ -21,6 +31,16 @@ struct MaskSet
 	int checkers = 0;
 
 	inline int get_check_cnt() { return checkers; }
+
+	inline PinSplit split_pins() const
+	{
+		return {
+			pinmask_dg & ~pinmask_orth,
+			pinmask_orth & ~pinmask_dg,
+			legal_squares & pinmask_dg,
+			legal_squares & pinmask_orth,
+		};
+	}
 
 	// Create all the needed masks for the current position.
 	template <Player player>

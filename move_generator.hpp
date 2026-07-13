@@ -6,8 +6,6 @@
 #include "util.hpp"
 #include "movelist.hpp"
 #include "move.hpp"
-#include <cstddef>
-#include <cstdint>
 
 #pragma once
 
@@ -27,8 +25,7 @@ namespace move_generation
                 if (board.is_attacked<player>(to))
                     continue;
             }
-            Move move = capture ? MoveEncoding::capture(from, to) : MoveEncoding::quiet_move(from, to);
-            moves.push(move);
+            moves.push(capture ? MoveEncoding::capture(from, to) : MoveEncoding::quiet_move(from, to));
         }
     }
 
@@ -60,44 +57,25 @@ namespace move_generation
     template <Player player>
     inline void get_slider_moves(MaskSet &mask, Board &board, MoveStack &moves)
     {
-        // Get slider boards.
         BitBoard bishops = board.get_piece_board<player, PieceType::bishop>();
         BitBoard rooks = board.get_piece_board<player, PieceType::rook>();
         BitBoard queens = board.get_piece_board<player, PieceType::queen>();
-        // Seperate pinned from unpinned pieces.
-        BitBoard unp_b = bishops & mask.nopin;
-        BitBoard unp_r = rooks & mask.nopin;
-        BitBoard unp_q = queens & mask.nopin;
-        // Pinned squares that the piece can still move to.
-        BitBoard pin_cmt_diag = mask.legal_squares & mask.pinmask_dg;
-        BitBoard pin_cmt_orth = mask.legal_squares & mask.pinmask_orth;
-        BitBoard dg_not_orth = mask.pinmask_dg & ~mask.pinmask_orth;
-        BitBoard orth_not_dg = mask.pinmask_orth & ~mask.pinmask_dg;
-        // Isolate pinned pieces.
-        BitBoard pin_b = bishops & dg_not_orth;
-        BitBoard pin_q_diag = queens & dg_not_orth;
-        BitBoard pin_r = rooks & orth_not_dg;
-        BitBoard pin_q_orth = queens & orth_not_dg;
+        const PinSplit pins = mask.split_pins();
         // Pinned + unpinned.
-        moves_for_piecetype<PieceType::bishop, player>(board, pin_b, pin_cmt_diag, moves);
-        moves_for_piecetype<PieceType::bishop, player>(board, unp_b, mask.legal_squares, moves);
-        moves_for_piecetype<PieceType::queen, player, SliderType::diagonal>(board, pin_q_diag, pin_cmt_diag, moves);
-        moves_for_piecetype<PieceType::queen, player>(board, unp_q, mask.legal_squares, moves);
-        moves_for_piecetype<PieceType::queen, player, SliderType::orthogonal>(board, pin_q_orth, pin_cmt_orth, moves);
-        moves_for_piecetype<PieceType::rook, player>(board, pin_r, pin_cmt_orth, moves);
-        moves_for_piecetype<PieceType::rook, player>(board, unp_r, mask.legal_squares, moves);
+        moves_for_piecetype<PieceType::bishop, player>(board, bishops & pins.dg_not_orth, pins.cmt_diag, moves);
+        moves_for_piecetype<PieceType::bishop, player>(board, bishops & mask.nopin, mask.legal_squares, moves);
+        moves_for_piecetype<PieceType::queen, player, SliderType::diagonal>(board, queens & pins.dg_not_orth, pins.cmt_diag, moves);
+        moves_for_piecetype<PieceType::queen, player>(board, queens & mask.nopin, mask.legal_squares, moves);
+        moves_for_piecetype<PieceType::queen, player, SliderType::orthogonal>(board, queens & pins.orth_not_dg, pins.cmt_orth, moves);
+        moves_for_piecetype<PieceType::rook, player>(board, rooks & pins.orth_not_dg, pins.cmt_orth, moves);
+        moves_for_piecetype<PieceType::rook, player>(board, rooks & mask.nopin, mask.legal_squares, moves);
     }
 
     template <Player player, bool kingside>
     inline void generate_castling_moves(const Board &board, const MaskSet &mask, const GameState &state, MoveStack &moves)
     {
-        if constexpr (kingside) {
-            if (!state.can_castle_k(player))
-                return;
-        } else if constexpr (!kingside) {
-            if (!state.can_castle_q(player))
-                return;
-        }
+        if (!(kingside ? state.can_castle_k(player) : state.can_castle_q(player)))
+            return;
 
         const BitBoard rook_mask = board.get_piece_board<player, PieceType::rook>() & get_corner<player, kingside>();
         if (!rook_mask)
@@ -110,15 +88,13 @@ namespace move_generation
         {
             moves.push(MoveEncoding::castle<player, kingside>());
         }
-        return;
     }
 
     template <Player player>
     inline void generate_en_passant_moves(Board &board, MaskSet &mask, GameState &state, MoveStack &moves)
     {
         // Simulate en passant moves and see if king is in check after the move.
-        const uint8_t ep_file = ((state.data & 0b11110000) - 1) >> 4;
-        const Square ep_target = player == Player::white ? 40 + ep_file : 16 + ep_file;
+        const Square ep_target = state.ep_target<player>();
         const BitBoard ep_target_board = square_to_mask(ep_target);
         const BitBoard capture_pawn = player == Player::white ? ep_target_board >> 8 : ep_target_board << 8;
         BitBoard adj_pawns = board.get_piece_board<player, PieceType::pawn>() & (capture_pawn << 1 | capture_pawn >> 1);
@@ -132,7 +108,6 @@ namespace move_generation
 
             make_move::unmake_ep_capture<player>(board, from, ep_target);
         }
-        return;
     }
 
     template <Player player>
@@ -152,9 +127,7 @@ namespace move_generation
         {
             const BitBoard from = pop_extract(pawns);
             const Square from_sq = lbr(from);
-            const BitBoard forward = get_pawn_forward<player>(from) & move_mask;
-            const BitBoard left_attack = get_pawn_attack<player, true>(from) & enemy_pieces;
-            const BitBoard right_attack = get_pawn_attack<player, false>(from) & enemy_pieces;
+            const auto [forward, left_attack, right_attack] = get_pawn_targets<player>(from, move_mask, enemy_pieces);
             if (forward)
                 moves.push(MoveEncoding::quiet_move(from_sq, lbr(forward)));
             if (left_attack)
@@ -197,9 +170,7 @@ namespace move_generation
         {
             const BitBoard from = pop_extract(pawns);
             const Square from_sq = lbr(from);
-            const BitBoard forward = get_pawn_forward<player>(from) & push_mask;
-            const BitBoard left_attack = get_pawn_attack<player, true>(from) & enemy_pieces;
-            const BitBoard right_attack = get_pawn_attack<player, false>(from) & enemy_pieces;
+            const auto [forward, left_attack, right_attack] = get_pawn_targets<player>(from, push_mask, enemy_pieces);
             if (forward)
                 push_promotions(moves, from_sq, lbr(forward), false);
             if (left_attack)
@@ -214,30 +185,20 @@ namespace move_generation
     {
         // Seperate promotion pawns, pinned pawns and normal pawns.
         const BitBoard all_pawns = board.get_piece_board<player, PieceType::pawn>();
-        const BitBoard promotion_pawns = all_pawns & (player == Player::white ? c_promotion_from_w : c_promotion_from_b);
-        BitBoard normal_pawns = all_pawns ^ promotion_pawns;
-        const BitBoard pinned_pawns = normal_pawns & ~mask.nopin;
-        normal_pawns ^= pinned_pawns;
-        const BitBoard pinned_promotion_pawns = promotion_pawns & ~mask.nopin;
-        const BitBoard normal_promotion_pawns = promotion_pawns ^ pinned_promotion_pawns;
+        BitBoard normal_promotion_pawns = all_pawns & (player == Player::white ? c_promotion_from_w : c_promotion_from_b);
+        BitBoard normal_pawns = all_pawns ^ normal_promotion_pawns;
+        const BitBoard pinned_pawns = extract_pinned(normal_pawns, mask.nopin);
+        const BitBoard pinned_promotion_pawns = extract_pinned(normal_promotion_pawns, mask.nopin);
         // A pinned pawn must stay on the specific line pinning it. A pawn
         // pinned diagonally can't use an unrelated orthogonal pin's squares
         // (and vice versa), so each pin type must be handled separately.
-        const BitBoard dg_not_orth = mask.pinmask_dg & ~mask.pinmask_orth;
-        const BitBoard orth_not_dg = mask.pinmask_orth & ~mask.pinmask_dg;
-        const BitBoard pin_cmt_diag = mask.legal_squares & mask.pinmask_dg;
-        const BitBoard pin_cmt_orth = mask.legal_squares & mask.pinmask_orth;
-        const BitBoard diag_pinned_pawns = pinned_pawns & dg_not_orth;
-        const BitBoard orth_pinned_pawns = pinned_pawns & orth_not_dg;
-        const BitBoard diag_pinned_promo = pinned_promotion_pawns & dg_not_orth;
-        const BitBoard orth_pinned_promo = pinned_promotion_pawns & orth_not_dg;
-        // Get all the moves for pinned and normal pawns.
+        const PinSplit pins = mask.split_pins();
         generate_pawn_moves<player>(board, normal_pawns, mask.legal_squares, moves);
-        generate_pawn_moves<player>(board, diag_pinned_pawns, pin_cmt_diag, moves);
-        generate_pawn_moves<player>(board, orth_pinned_pawns, pin_cmt_orth, moves);
+        generate_pawn_moves<player>(board, pinned_pawns & pins.dg_not_orth, pins.cmt_diag, moves);
+        generate_pawn_moves<player>(board, pinned_pawns & pins.orth_not_dg, pins.cmt_orth, moves);
         generate_promotion_moves<player>(board, normal_promotion_pawns, mask.legal_squares, moves);
-        generate_promotion_moves<player>(board, diag_pinned_promo, pin_cmt_diag, moves);
-        generate_promotion_moves<player>(board, orth_pinned_promo, pin_cmt_orth, moves);
+        generate_promotion_moves<player>(board, pinned_promotion_pawns & pins.dg_not_orth, pins.cmt_diag, moves);
+        generate_promotion_moves<player>(board, pinned_promotion_pawns & pins.orth_not_dg, pins.cmt_orth, moves);
     }
 
     template <Player player>

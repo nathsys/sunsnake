@@ -119,3 +119,20 @@ inline BitBoard get_pawn_attacks(const BitBoard piece_board)
 {
 	return get_pawn_attack<player, true>(piece_board) | get_pawn_attack<player, false>(piece_board);
 }
+
+struct PawnTargets
+{
+	BitBoard forward;
+	BitBoard left_attack;
+	BitBoard right_attack;
+};
+
+template <Player player>
+inline PawnTargets get_pawn_targets(BitBoard from, BitBoard push_mask, BitBoard enemy_pieces)
+{
+	return {
+		get_pawn_forward<player>(from) & push_mask,
+		get_pawn_attack<player, true>(from) & enemy_pieces,
+		get_pawn_attack<player, false>(from) & enemy_pieces,
+	};
+}

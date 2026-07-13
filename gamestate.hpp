@@ -61,6 +61,13 @@ struct GameState
     }
 
     template <Player player>
+    constexpr Square ep_target() const
+    {
+        const uint8_t ep_file = ((data & 0b11110000) - 1) >> 4;
+        return player == Player::white ? 40 + ep_file : 16 + ep_file;
+    }
+
+    template <Player player>
     constexpr void rm_cr()
     {
         if constexpr (player == Player::white)
