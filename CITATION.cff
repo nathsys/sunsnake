@@ -1,0 +1,19 @@
+cff-version: 1.2.0
+message: "If you use this software, please cite it as below."
+title: "Sunsnake: a bitboard chess move-generation library"
+type: software
+authors:
+  - family-names: "Mohanu"
+    given-names: "Nathanael"
+    orcid: "https://orcid.org/0009-0005-4198-1217"
+repository-code: "https://github.com/nathsys/sunsnake"
+license: MIT
+abstract: "A reusable C++20 chess move-generation library and perft engine using bitboards, PEXT/PDEP sliding-attack lookups, and incremental Zobrist hashing, with exact perft verification through depth 8."
+keywords:
+  - chess
+  - move generation
+  - perft
+  - bitboards
+  - C++20
+version: "1.0.0"
+date-released: "2026-10-24"
