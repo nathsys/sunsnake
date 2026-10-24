@@ -180,3 +180,5 @@ All headers live under `include/sunsnake/` and their contents sit in `namespace 
 ## License
 
 MIT, see [LICENSE](LICENSE).
+
+Made by Nathanael Mohanu
